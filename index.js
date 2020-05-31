@@ -19,6 +19,7 @@ async function play(connection, message) {
     var server = servers[message.guild.id];
 
     server.dispatcher = connection.play(await ytdl.downloadFromInfo(server.queue[0], {type: 'opus'}));
+    bot.user.setActivity(server.queue[0].title_short);
 
     server.queue.shift();
 
@@ -28,6 +29,7 @@ async function play(connection, message) {
             play(connection, message);
         }else{
             connection.disconnect();
+            bot.user.setActivity('');
         }
     });
 }
@@ -50,6 +52,25 @@ async function getUrl(message, args){
             console.log('video not found');
         }
     });
+}
+
+async function search(message, args){
+    var searchTerm = args.splice(1).join(' ');
+    youtubeV3.search.list({
+        part: 'snippet',
+        type: 'video',
+        q: searchTerm,
+        maxResults: 5
+    }, (err, response) => {
+        //if(err) return;
+        var msg = "```" + "Top 5 YouTube results:\n";
+        for(var i = 0; i < 5; i++){
+            msg += "  " + response['data']['items'][i]['snippet']['title'] + "\n";
+        }
+        msg += "```";
+        return message.channel.send(msg);
+        //console.log(response['data']['items']);
+    })
 }
 
 async function playUrl(message, url){
@@ -89,10 +110,10 @@ async function top5(message, args){
         if (res.error) throw new Error(res.error);
 
         let json = res.body;
-        var msg = "```" + "Top 5 results:\n";
+        var msg = "```" + "Top 5 Deezer results:\n";
         for(var i = 0; i < 5; i++){
             try{
-                msg += `  ${json['data'][i+1]['artist']['name']} - ${json['data'][i+1]['title_short']}\n`;
+                msg += `  ${json['data'][i]['artist']['name']} - ${json['data'][i]['title_short']}\n`;
             }
             catch{
                 console.log('no result');
@@ -112,7 +133,11 @@ bot.on('message', message => {
             if(!args[1]) return message.reply('Error, please enter a search term');
         
             top5(message, args);
-            
+            break;
+        case 'search':
+            if(!args[1]) return message.reply('Error, please enter a search term');
+
+            search(message, args);
             break;
         case 'play':
             if(!args[1]){
