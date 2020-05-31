@@ -1,6 +1,7 @@
 var unirest = require("unirest");
 var req = unirest("GET", "https://deezerdevs-deezer.p.rapidapi.com/search");
 
+const request = require('request');
 const ytdl = require("ytdl-core-discord");
 const yts = require('yt-search');
 const Discord = require('discord.js');
@@ -90,6 +91,38 @@ async function playUrl(message, url){
         });
 }
 
+function embedFaceit(message, args){
+    var headers = {
+        'accept': 'application/json',
+        'Authorization': `Bearer ${config.FaceITApiKey}`
+    };
+
+    var options = {
+        url: `https://open.faceit.com/data/v4/players?nickname=${args[1]}&game=csgo`,
+        headers: headers
+    };
+    
+    request(options, function(err, r, body){
+        if(!err && r.statusCode == 200){
+            var json = JSON.parse(body);
+            try{
+                const embed = new Discord.MessageEmbed()
+                .setTitle(`Faceit: ${json['nickname']}`)
+                .addField('Level', json['games']['csgo']['skill_level'], true)
+                .addField('Elo', json['games']['csgo']['faceit_elo'], true)
+                .setThumbnail(json['avatar'])
+                .setColor(0xF1C40F)
+                .setFooter(json['new_steam_id'], `https://www.countryflags.io/${json['country']}/flat/64.png`)
+    
+                return message.channel.send(embed);
+            }
+            catch{
+                
+            }
+        }
+    });
+}
+
 async function top5(message, args){
     let searchTerm = args.slice(1).join(' ');
 
@@ -167,6 +200,9 @@ bot.on('message', message => {
         case 'skip':
             var server = servers[message.guild.id];
             if(server.dispatcher) server.dispatcher.end();
+            break;
+        case 'elo':
+            embedFaceit(message, args);
             break;
         case 'help':
             break;
