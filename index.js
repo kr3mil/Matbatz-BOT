@@ -2,12 +2,10 @@ var unirest = require("unirest");
 var req = unirest("GET", "https://deezerdevs-deezer.p.rapidapi.com/search");
 
 const ytdl = require("ytdl-core-discord");
+const yts = require('yt-search');
 const Discord = require('discord.js');
 const bot = new Discord.Client();
 const config = require('./config.json');
-
-const {google} = require('googleapis');
-var youtubeV3 = google.youtube( { version: 'v3', auth: config.GoogleAPIKey } );
 
 var servers = {};
 
@@ -46,15 +44,11 @@ async function getUrl(message, args){
     let validate = await ytdl.validateURL(args[1]);
     if(validate) return playUrl(message, args[1]);
     console.log('Url not valid, looking for video');
-    // Find first youtube video in search
-    youtubeV3.search.list({
-        part: 'snippet',
-        type: 'video',
-        q: args.splice(1).join(' '),
-        maxResults: 1
-    }, (err,response) => {
+    var searchTerm = args.splice(1).join(' ');
+    yts(searchTerm, function(err, r){
         try{
-            playUrl(message, 'https://www.youtube.com/watch?v=' + response['data']['items'][0]['id']['videoId']);
+            const videos = r.videos;
+            playUrl(message, videos[0]['url']);
         }
         catch(exception){
             console.log('video not found');
@@ -64,25 +58,20 @@ async function getUrl(message, args){
 
 async function search(message, args){
     var searchTerm = args.splice(1).join(' ');
-    youtubeV3.search.list({
-        part: 'snippet',
-        type: 'video',
-        q: searchTerm,
-        maxResults: 5
-    }, (err, response) => {
-        //if(err) return;
+    yts(searchTerm, function(err, r){
+        const videos = r.videos;
         var msg = "```" + "Top 5 YouTube results:\n";
         for(var i = 0; i < 5; i++){
-            msg += "  " + response['data']['items'][i]['snippet']['title'] + "\n";
+            msg += "  " + videos[i]['title'] + " - " + videos[i]['url'] + "\n";
         }
         msg += "```";
         return message.channel.send(msg);
-        //console.log(response['data']['items']);
-    })
+    });
 }
 
 async function playUrl(message, url){
     console.log('got url');
+    console.log(url);
     const song = await ytdl.getInfo(url);
 
     var server = servers[message.guild.id];
