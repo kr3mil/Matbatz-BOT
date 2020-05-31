@@ -13,16 +13,12 @@ bot.on('ready', () => {
     console.log('Online!');
 })
 
-function play(connection, message) {
+async function play(connection, message) {
     var server = servers[message.guild.id];
 
-    server.dispatcher = connection.play(ytdl(server.queue[0], {filter: "audio"}));
+    server.dispatcher = connection.play(await ytdl(server.queue[0].url, {filter: "audio"}));
 
     server.queue.shift();
-
-    server.dispatcher.on("debug", function() {
-        console.log('debug');
-    });
 
     server.dispatcher.on("finish", function() {
         console.log('Songs left: ' + server.queue.length);
@@ -32,6 +28,30 @@ function play(connection, message) {
             connection.disconnect();
         }
     });
+}
+
+async function execute(message, args){
+    const songInfo = await ytdl.getInfo(args[1]);
+    const song = {
+      title: songInfo.title,
+      url: songInfo.video_url
+    };
+
+    var server = servers[message.guild.id];
+    console.log('Queue size: ' + server.queue.length);
+    server.queue.push(song);
+    message.channel.send(`'${song.title}' has been added to the queue.`);
+    console.log('Queue size: ' + server.queue.length);
+
+    console.log(message.guild.voice);
+    if(message.guild.voice){
+        if(message.guild.voice.connection) return;
+    }
+    
+    message.member.voice.channel.join().then(function(connection){
+        console.log('Bot not in voice channel, connecting');
+        play(connection, message);
+        });
 }
 
 bot.on('message', message => {
@@ -84,15 +104,7 @@ bot.on('message', message => {
                 queue: []
             }}
 
-            var server = servers[message.guild.id];
-            console.log('Queue size: ' + server.queue.length);
-            server.queue.push(args[1]);
-            console.log('Song added to queue');
-            console.log('Queue size: ' + server.queue.length);
-            if(!message.guild.voice) message.member.voice.channel.join().then(function(connection){
-                console.log('Bot not in voice channel');
-                play(connection, message);
-            });
+            execute(message, args);
             break;
         case 'skip':
             var server = servers[message.guild.id];
