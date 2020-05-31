@@ -19,7 +19,7 @@ async function play(connection, message) {
     var server = servers[message.guild.id];
 
     server.dispatcher = connection.play(await ytdl.downloadFromInfo(server.queue[0], {type: 'opus', quality: 'highestaudio', filter: 'audioonly', requestOptions: { maxReconnects: 15, maxRetries: 5}}));
-    bot.user.setActivity(server.queue[0].title_short);
+    message.channel.send(`Now playing: ${server.queue[0].title}`);
 
     server.queue.shift();
 
@@ -29,8 +29,7 @@ async function play(connection, message) {
             play(connection, message);
         }else{
             // Change so it disconnects after a while?
-            //connection.disconnect();
-            bot.user.setActivity('');
+            connection.disconnect();
         }
     });
 
@@ -134,6 +133,10 @@ async function top5(message, args){
 }
 
 bot.on('message', message => {
+    if(message.member.id === "206797799260553216"){
+        if(Math.ceil(Math.random() * 20) == 1) message.channel.send('retard');
+    }
+
     if(message.content[0] !== config.Prefix) return;
     let args = message.content.substring(config.Prefix.length).split(" ");
 
@@ -147,6 +150,11 @@ bot.on('message', message => {
             if(!args[1]) return message.reply('Error, please enter a search term');
 
             search(message, args);
+            break;
+        case 'clear':
+            var server = servers[message.guild.id];
+            server.queue = [];
+            if(server.dispatcher) server.dispatcher.end();
             break;
         case 'play':
             if(!args[1]){
