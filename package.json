@@ -13,7 +13,9 @@
     "ffmpeg-static": "^4.2.2",
     "googleapis": "^51.0.0",
     "opusscript": "0.0.7",
+    "prism-media": "^1.2.2",
     "unirest": "^0.6.0",
-    "ytdl-core": "^2.1.5"
+    "ytdl-core": "^2.1.5",
+    "ytdl-core-discord": "^1.2.0"
   }
 }
