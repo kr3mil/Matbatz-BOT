@@ -1,7 +1,7 @@
 var unirest = require("unirest");
 var req = unirest("GET", "https://deezerdevs-deezer.p.rapidapi.com/search");
 
-const ytdl = require("ytdl-core");
+const ytdl = require("ytdl-core-discord");
 const Discord = require('discord.js');
 const bot = new Discord.Client();
 const config = require('./config.json');
@@ -18,7 +18,7 @@ bot.on('ready', () => {
 async function play(connection, message) {
     var server = servers[message.guild.id];
 
-    server.dispatcher = connection.play(await ytdl(server.queue[0].url, {filter: "audio"}));
+    server.dispatcher = connection.play(await ytdl.downloadFromInfo(server.queue[0], {type: 'opus'}));
 
     server.queue.shift();
 
@@ -54,11 +54,7 @@ async function getUrl(message, args){
 
 async function playUrl(message, url){
     console.log('got url');
-    const songInfo = await ytdl.getInfo(url);
-    const song = {
-      title: songInfo.title,
-      url: songInfo.video_url
-    };
+    const song = await ytdl.getInfo(url);
 
     var server = servers[message.guild.id];
     console.log('Queue size: ' + server.queue.length);
