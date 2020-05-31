@@ -34,7 +34,7 @@ async function play(connection, message) {
 
 async function getUrl(message, args){
     let validate = await ytdl.validateURL(args[1]);
-    if(validate) execute(message, args[1]);
+    if(validate) playUrl(message, args[1]);
     console.log('Url not valid, looking for video');
     // Find first youtube video in search
     youtubeV3.search.list({
@@ -44,7 +44,7 @@ async function getUrl(message, args){
         maxResults: 1
     }, (err,response) => {
         try{
-            execute(message, 'https://www.youtube.com/watch?v=' + response['data']['items'][0]['id']['videoId']);
+            playUrl(message, 'https://www.youtube.com/watch?v=' + response['data']['items'][0]['id']['videoId']);
         }
         catch(exception){
             console.log('video not found');
@@ -52,7 +52,7 @@ async function getUrl(message, args){
     });
 }
 
-async function execute(message, url){
+async function playUrl(message, url){
     console.log('got url');
     const songInfo = await ytdl.getInfo(url);
     const song = {
@@ -76,50 +76,59 @@ async function execute(message, url){
         });
 }
 
+async function top5(message, args){
+    let searchTerm = args.slice(1).join(' ');
+
+    req.query({
+        "q": searchTerm
+    });
+
+    req.headers({
+        "x-rapidapi-host": "deezerdevs-deezer.p.rapidapi.com",
+        "x-rapidapi-key": config.RapidAPIKey,
+        "useQueryString": true
+    });
+
+    req.end(function (res) {
+        if (res.error) throw new Error(res.error);
+
+        let json = res.body;
+        var msg = "```" + "Top 5 results:\n";
+        for(var i = 0; i < 5; i++){
+            try{
+                msg += `  ${json['data'][i+1]['artist']['name']} - ${json['data'][i+1]['title_short']}\n`;
+            }
+            catch{
+                console.log('no result');
+            }
+        }
+        msg += "```";
+        return message.channel.send(msg);
+    });
+}
+
 bot.on('message', message => {
     if(message.content[0] !== config.Prefix) return;
     let args = message.content.substring(config.Prefix.length).split(" ");
 
     switch(args[0]){
-        case 'search':
+        case 'top5':
             if(!args[1]) return message.reply('Error, please enter a search term');
         
-            let searchTerm = args.slice(1).join(' ');
-
-            req.query({
-                "q": searchTerm
-            });
-
-            req.headers({
-                "x-rapidapi-host": "deezerdevs-deezer.p.rapidapi.com",
-                "x-rapidapi-key": config.RapidAPIKey,
-                "useQueryString": true
-            });
-
-            req.end(function (res) {
-                if (res.error) throw new Error(res.error);
-
-                let json = res.body;
-                var msg = "```" + "Top 5 results:\n";
-                for(var i = 0; i < 5; i++){
-                    msg += `  ${json['data'][i+1]['artist']['name']} - ${json['data'][i+1]['title_short']}\n`;
-                }
-                msg += "```";
-                return message.channel.send(msg);
-            });
+            top5(message, args);
+            
             break;
         case 'play':
             if(!args[1]){
                 message.channel.send("You need to provide a link!");
                 return;
             }
-            //change here
+
             if(!message.member.voice.channel){
                 message.channel.send("You must be in a channel to play the bot.");
                 return;
             }
             
-            //queues
             if(!servers[message.guild.id]){
                 console.log('Adding server to servers array');
                 servers[message.guild.id] = {
