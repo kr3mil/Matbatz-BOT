@@ -290,6 +290,9 @@ bot.on('message', message => {
                 return message.reply('Refreshed auth token.');
             }
             return message.reply('This command is only for Admins.');
+        case 'joke':
+            dadJoke(message);
+            break;
         case 'help':
             break;
         default:
@@ -298,6 +301,24 @@ bot.on('message', message => {
 })
 
 bot.login(config.Token);
+
+function dadJoke(message){
+    var headers = {
+        'Accept': 'application/json'
+    };
+    
+    var options = {
+        url: 'https://icanhazdadjoke.com/',
+        headers: headers
+    };
+
+    request(options, function(err, r, body){
+        if (!err && r.statusCode == 200) {
+            let json = JSON.parse(body);
+            message.channel.send(json['joke']);
+        }
+    });
+}
 
 function generateCharacterEmbed(characterJS, avatarJS){
     const embed = new Discord.MessageEmbed()
