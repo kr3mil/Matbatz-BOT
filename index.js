@@ -18,7 +18,7 @@ bot.on('ready', () => {
 async function play(connection, message) {
     var server = servers[message.guild.id];
 
-    server.dispatcher = connection.play(await ytdl.downloadFromInfo(server.queue[0], {type: 'opus'}));
+    server.dispatcher = connection.play(await ytdl.downloadFromInfo(server.queue[0], {type: 'opus', quality: 'highestaudio', filter: 'audioonly', requestOptions: { maxReconnects: 15, maxRetries: 5}}));
     bot.user.setActivity(server.queue[0].title_short);
 
     server.queue.shift();
@@ -28,15 +28,24 @@ async function play(connection, message) {
         if(server.queue[0]){
             play(connection, message);
         }else{
-            connection.disconnect();
+            // Change so it disconnects after a while?
+            //connection.disconnect();
             bot.user.setActivity('');
         }
     });
+
+    server.dispatcher.on("reconnect", function() {
+        console.log('Tried to reconnect?');
+    });
+
+    server.dispatcher.on("retry", function() {
+        console.log('Tried to retry?');
+    })
 }
 
 async function getUrl(message, args){
     let validate = await ytdl.validateURL(args[1]);
-    if(validate) playUrl(message, args[1]);
+    if(validate) return playUrl(message, args[1]);
     console.log('Url not valid, looking for video');
     // Find first youtube video in search
     youtubeV3.search.list({
