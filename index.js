@@ -1,11 +1,13 @@
 var unirest = require("unirest");
-
 var req = unirest("GET", "https://deezerdevs-deezer.p.rapidapi.com/search");
 
 const ytdl = require("ytdl-core");
 const Discord = require('discord.js');
 const bot = new Discord.Client();
 const config = require('./config.json');
+
+const {google} = require('googleapis');
+var youtubeV3 = google.youtube( { version: 'v3', auth: config.GoogleAPIKey } );
 
 var servers = {};
 
@@ -30,8 +32,29 @@ async function play(connection, message) {
     });
 }
 
-async function execute(message, args){
-    const songInfo = await ytdl.getInfo(args[1]);
+async function getUrl(message, args){
+    let validate = await ytdl.validateURL(args[1]);
+    if(validate) execute(message, args[1]);
+    console.log('Url not valid, looking for video');
+    // Find first youtube video in search
+    youtubeV3.search.list({
+        part: 'snippet',
+        type: 'video',
+        q: args.splice(1).join(' '),
+        maxResults: 1
+    }, (err,response) => {
+        try{
+            execute(message, 'https://www.youtube.com/watch?v=' + response['data']['items'][0]['id']['videoId']);
+        }
+        catch(exception){
+            console.log('video not found');
+        }
+    });
+}
+
+async function execute(message, url){
+    console.log('got url');
+    const songInfo = await ytdl.getInfo(url);
     const song = {
       title: songInfo.title,
       url: songInfo.video_url
@@ -43,7 +66,6 @@ async function execute(message, args){
     message.channel.send(`'${song.title}' has been added to the queue.`);
     console.log('Queue size: ' + server.queue.length);
 
-    console.log(message.guild.voice);
     if(message.guild.voice){
         if(message.guild.voice.connection) return;
     }
@@ -104,7 +126,7 @@ bot.on('message', message => {
                 queue: []
             }}
 
-            execute(message, args);
+            getUrl(message, args);
             break;
         case 'skip':
             var server = servers[message.guild.id];
