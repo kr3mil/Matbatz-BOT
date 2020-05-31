@@ -1,5 +1,7 @@
+var XMLHttpRequest = require("xmlhttprequest").XMLHttpRequest;
 var unirest = require("unirest");
 var req = unirest("GET", "https://deezerdevs-deezer.p.rapidapi.com/search");
+var exec = require('child_process').exec;
 
 const request = require('request');
 const ytdl = require("ytdl-core-discord");
@@ -7,6 +9,7 @@ const yts = require('yt-search');
 const Discord = require('discord.js');
 const bot = new Discord.Client();
 const config = require('./config.json');
+const Http = new XMLHttpRequest();
 
 var servers = {};
 
@@ -53,6 +56,7 @@ async function getUrl(message, args){
         }
         catch(exception){
             console.log('video not found');
+            // TODO display error
         }
     });
 }
@@ -60,13 +64,18 @@ async function getUrl(message, args){
 async function search(message, args){
     var searchTerm = args.splice(1).join(' ');
     yts(searchTerm, function(err, r){
-        const videos = r.videos;
-        var msg = "```" + "Top 5 YouTube results:\n";
-        for(var i = 0; i < 5; i++){
-            msg += "  " + videos[i]['title'] + " - " + videos[i]['url'] + "\n";
+        try{
+            const videos = r.videos;
+            var msg = "```" + "Top 5 YouTube results:\n";
+            for(var i = 0; i < 5; i++){
+                msg += "  " + videos[i]['title'] + " - " + videos[i]['url'] + "\n";
+            }
+            msg += "```";
+            return message.channel.send(msg);
         }
-        msg += "```";
-        return message.channel.send(msg);
+        catch{
+            // TODO display error
+        }
     });
 }
 
@@ -117,7 +126,7 @@ function embedFaceit(message, args){
                 return message.channel.send(embed);
             }
             catch{
-                
+
             }
         }
     });
@@ -204,6 +213,83 @@ bot.on('message', message => {
         case 'elo':
             embedFaceit(message, args);
             break;
+        case 'lookup':
+            if(!args[1]) return message.reply('Error, please enter a character name');
+
+            if(args[1].includes('-')){
+                let charRealm = args[1].split('-');
+                const characterUrl = `https://eu.api.blizzard.com/profile/wow/character/${charRealm[1].toLowerCase()}/${charRealm[0].toLowerCase()}?namespace=profile-eu${config.AccessEnding}${config.AccessToken}`;
+                Http.open("GET", characterUrl);
+            }
+            else{
+                const characterUrl = `https://eu.api.blizzard.com/profile/wow/character/thunderhorn/${args[1].toLowerCase()}?namespace=profile-eu${config.AccessEnding}${config.AccessToken}`;
+                Http.open("GET", characterUrl);
+            }
+            Http.send();
+            
+            Http.onreadystatechange = (e) => {
+                if(Http.readyState == 4){
+                    if(Http.status == 200){
+                        console.log('received character');
+                        var characterJS = JSON.parse(Http.responseText);
+
+                        // Get avatar
+                        const avatarHttp = new XMLHttpRequest();
+                        const avatarURL = characterJS['media']['href'] + config.AccessEnding + config.AccessToken;
+                        avatarHttp.open("GET", avatarURL);
+                        avatarHttp.send();
+
+                        avatarHttp.onreadystatechange = (a) => {
+                            if(avatarHttp.readyState == 4){
+                                var avatarJS = JSON.parse(avatarHttp.responseText);
+                                return message.channel.send(generateCharacterEmbed(characterJS, avatarJS));
+                            }
+                        }
+                    }
+                    else if(Http.status == 404){
+                        return message.channel.send("Character '" + args[1] + "' does not exist.");
+                    }
+                    else{
+                        console.log(Http.responseText);
+                    }
+                }
+            }
+            break;
+        case 'render':
+            if(!args[1]) return message.reply('Error, please enter a character name');
+            if(args[1].includes('-')){
+                let charRealm = args[1].split('-');
+                const characterUrl = `https://eu.api.blizzard.com/profile/wow/character/${charRealm[1].toLowerCase()}/${charRealm[0].toLowerCase()}/character-media?namespace=profile-eu${config.AccessEnding}${config.AccessToken}`;
+                Http.open("GET", characterUrl);
+            }
+            else{
+                const characterUrl = `https://eu.api.blizzard.com/profile/wow/character/thunderhorn/${args[1].toLowerCase()}/character-media?namespace=profile-eu${config.AccessEnding}${config.AccessToken}`;
+                Http.open("GET", characterUrl);
+            }
+            Http.send();
+
+            Http.onreadystatechange = (e) => {
+                if(Http.readyState == 4){
+                    if(Http.status == 200){
+                        var avatarJS = JSON.parse(Http.responseText);
+
+                        return message.channel.send({files: [avatarJS['render_url']]});
+                    }
+                }
+            }
+            break;
+        case 'roll':
+            var upperLimit = 10;
+            if(args[1]){
+                upperLimit = parseInt(args[1]);
+            }
+            return message.reply(`you rolled a ${Math.ceil(Math.random() * upperLimit)} (1 - ${upperLimit})`);
+        case 'getToken':
+            if (message.member.hasPermission("ADMINISTRATOR")){
+                getAuthToken();
+                return message.reply('Refreshed auth token.');
+            }
+            return message.reply('This command is only for Admins.');
         case 'help':
             break;
         default:
@@ -212,3 +298,42 @@ bot.on('message', message => {
 })
 
 bot.login(config.Token);
+
+function generateCharacterEmbed(characterJS, avatarJS){
+    const embed = new Discord.MessageEmbed()
+    .setTitle(characterJS['name'])
+    .addField('Level', characterJS['level'], true)
+    .addField('iLvl', characterJS['equipped_item_level'], true)
+    .addField('Guild', characterJS['guild']['name'], true)
+    .addField('Race', characterJS['race']['name'], true)
+    .addField('Spec', characterJS['active_spec']['name'], true)
+    .addField('Class', characterJS['character_class']['name'], true)
+    .setThumbnail(avatarJS['avatar_url'])
+    .setColor(0xF1C40F)
+    .setFooter(characterJS['realm']['name'])
+
+    return embed;
+}
+
+function getAuthToken(){
+    var command = `curl -u ${config.ClientID}:${config.ClientSecret} -d grant_type=client_credentials https://us.battle.net/oauth/token`;
+
+    child = exec(command, function(error, stdout, stderr){
+        console.log('stdout: ' + stdout);
+        console.log('stderr: ' + stderr);
+
+        if(error !== null){
+            console.log('exec error: ' + error)
+        }
+
+        let json = JSON.parse(stdout);
+        if(json !== null){
+            let token = json["access_token"];
+            if(token !== null){
+                console.log('set token to: ' + token);
+                config.AccessToken = token;
+            }
+        }
+    });
+    
+}
