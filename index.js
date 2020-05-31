@@ -5,8 +5,6 @@ const package = require('./package.json')
 
 const PREFIX = '!';
 
-const Http = new XMLHttpRequest();
-
 bot.on('ready', () => {
     console.log('Online!');
 })
