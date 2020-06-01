@@ -12,20 +12,23 @@ const config = require('./config.json');
 const Http = new XMLHttpRequest();
 
 var servers = {};
+var currentSong;
 
 bot.on('ready', () => {
     console.log('Online!');
 })
 
 async function play(connection, message) {
-    var server = servers[message.guild.id];
+    let server = servers[message.guild.id];
 
-    server.dispatcher = connection.play(await ytdl.downloadFromInfo(server.queue[0], {type: 'opus', quality: 'highestaudio', filter: 'audioonly', requestOptions: { maxReconnects: 15, maxRetries: 5}}));
-    message.channel.send(`Now playing: ${server.queue[0].title}`);
+    currentSong = server.queue[0];
+    server.dispatcher = connection.play(await ytdl.downloadFromInfo(currentSong, {type: 'opus', quality: 'highestaudio', filter: 'audioonly', requestOptions: { maxReconnects: 15, maxRetries: 5}}));
+    message.channel.send(`Now playing: ${currentSong.title}`);
 
     server.queue.shift();
 
     server.dispatcher.on("finish", function() {
+        currentSong = undefined;
         console.log('Songs left: ' + server.queue.length);
         if(server.queue[0]){
             play(connection, message);
@@ -45,13 +48,14 @@ async function play(connection, message) {
 }
 
 async function getUrl(message, args){
-    let validate = await ytdl.validateURL(args[1]);
+    const validate = await ytdl.validateURL(args[1]);
     if(validate) return playUrl(message, args[1]);
     console.log('Url not valid, looking for video');
-    var searchTerm = args.splice(1).join(' ');
+    const searchTerm = args.splice(1).join(' ');
     yts(searchTerm, function(err, r){
         try{
             const videos = r.videos;
+            console.log(videos);
             playUrl(message, videos[0]['url']);
         }
         catch(exception){
@@ -62,12 +66,12 @@ async function getUrl(message, args){
 }
 
 async function search(message, args){
-    var searchTerm = args.splice(1).join(' ');
+    const searchTerm = args.splice(1).join(' ');
     yts(searchTerm, function(err, r){
         try{
             const videos = r.videos;
-            var msg = "```" + "Top 5 YouTube results:\n";
-            for(var i = 0; i < 5; i++){
+            let msg = "```" + "Top 5 YouTube results:\n";
+            for(let i = 0; i < 5; i++){
                 msg += "  " + videos[i]['title'] + " - " + videos[i]['url'] + "\n";
             }
             msg += "```";
@@ -84,7 +88,7 @@ async function playUrl(message, url){
     console.log(url);
     const song = await ytdl.getInfo(url);
 
-    var server = servers[message.guild.id];
+    let server = servers[message.guild.id];
     console.log('Queue size: ' + server.queue.length);
     server.queue.push(song);
     message.channel.send(`'${song.title}' has been added to the queue.`);
@@ -101,19 +105,19 @@ async function playUrl(message, url){
 }
 
 function embedFaceit(message, args){
-    var headers = {
+    const headers = {
         'accept': 'application/json',
         'Authorization': `Bearer ${config.FaceITApiKey}`
     };
 
-    var options = {
+    const options = {
         url: `https://open.faceit.com/data/v4/players?nickname=${args[1]}&game=csgo`,
         headers: headers
     };
     
     request(options, function(err, r, body){
         if(!err && r.statusCode == 200){
-            var json = JSON.parse(body);
+            const json = JSON.parse(body);
             try{
                 const embed = new Discord.MessageEmbed()
                 .setTitle(`Faceit: ${json['nickname']}`)
@@ -149,7 +153,7 @@ async function top5(message, args){
         if (res.error) throw new Error(res.error);
 
         let json = res.body;
-        var msg = "```" + "Top 5 Deezer results:\n";
+        let msg = "```" + "Top 5 Deezer results:\n";
         for(var i = 0; i < 5; i++){
             try{
                 msg += `  ${json['data'][i]['artist']['name']} - ${json['data'][i]['title_short']}\n`;
@@ -170,7 +174,7 @@ bot.on('message', message => {
 
     if(message.content[0] !== config.Prefix) return;
     let args = message.content.substring(config.Prefix.length).split(" ");
-
+    const server = servers[message.guild.id];
     switch(args[0]){
         case 'top5':
             if(!args[1]) return message.reply('Error, please enter a search term');
@@ -183,7 +187,6 @@ bot.on('message', message => {
             search(message, args);
             break;
         case 'clear':
-            var server = servers[message.guild.id];
             server.queue = [];
             if(server.dispatcher) server.dispatcher.end();
             break;
@@ -207,7 +210,6 @@ bot.on('message', message => {
             getUrl(message, args);
             break;
         case 'skip':
-            var server = servers[message.guild.id];
             if(server.dispatcher) server.dispatcher.end();
             break;
         case 'elo':
@@ -231,7 +233,7 @@ bot.on('message', message => {
                 if(Http.readyState == 4){
                     if(Http.status == 200){
                         console.log('received character');
-                        var characterJS = JSON.parse(Http.responseText);
+                        const characterJS = JSON.parse(Http.responseText);
 
                         // Get avatar
                         const avatarHttp = new XMLHttpRequest();
@@ -241,7 +243,7 @@ bot.on('message', message => {
 
                         avatarHttp.onreadystatechange = (a) => {
                             if(avatarHttp.readyState == 4){
-                                var avatarJS = JSON.parse(avatarHttp.responseText);
+                                const avatarJS = JSON.parse(avatarHttp.responseText);
                                 return message.channel.send(generateCharacterEmbed(characterJS, avatarJS));
                             }
                         }
@@ -279,7 +281,7 @@ bot.on('message', message => {
             }
             break;
         case 'roll':
-            var upperLimit = 10;
+            let upperLimit = 10;
             if(args[1]){
                 upperLimit = parseInt(args[1]);
             }
@@ -293,6 +295,25 @@ bot.on('message', message => {
         case 'joke':
             dadJoke(message);
             break;
+        case 'queue':
+            displayQueue(message);
+            break;
+        case 'current':
+            if(currentSong != undefined){
+                message.channel.send(`Current song: ${currentSong.title}`);
+            }
+            break;
+        case 'remove':
+            if(!args[1]) return message.reply('Error, please enter a song title');
+            let searchTerm = args.slice(1).join(' ');
+            console.log(`searching for ${searchTerm} in ${server.queue.length} songs`);
+            let index = server.queue.findIndex(x => x.title.toLowerCase().includes(searchTerm.toLowerCase()));
+            if(index > -1){
+                let removedSong = server.queue[index];
+                server.queue.splice(index, 1);
+                return message.channel.send(`${removedSong.title} removed from queue`);
+            }
+            break;
         case 'help':
             break;
         default:
@@ -302,19 +323,28 @@ bot.on('message', message => {
 
 bot.login(config.Token);
 
+function displayQueue(message){
+    let server = servers[message.guild.id];
+    let msg = "```Queue: " + server.queue.length + "\n";
+    for(let i = 0; i < server.queue.length; i++){
+        msg += "  " + server.queue[i].title + "\n";
+    }
+    return message.channel.send(msg += "```");
+}
+
 function dadJoke(message){
-    var headers = {
+    const headers = {
         'Accept': 'application/json'
     };
     
-    var options = {
+    const options = {
         url: 'https://icanhazdadjoke.com/',
         headers: headers
     };
 
     request(options, function(err, r, body){
         if (!err && r.statusCode == 200) {
-            let json = JSON.parse(body);
+            const json = JSON.parse(body);
             message.channel.send(json['joke']);
         }
     });
@@ -337,7 +367,7 @@ function generateCharacterEmbed(characterJS, avatarJS){
 }
 
 function getAuthToken(){
-    var command = `curl -u ${config.ClientID}:${config.ClientSecret} -d grant_type=client_credentials https://us.battle.net/oauth/token`;
+    const command = `curl -u ${config.ClientID}:${config.ClientSecret} -d grant_type=client_credentials https://us.battle.net/oauth/token`;
 
     child = exec(command, function(error, stdout, stderr){
         console.log('stdout: ' + stdout);
