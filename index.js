@@ -86,24 +86,18 @@ async function getUrl(message, args){
             listId: playlistId
         }
 
-        let attempts = 0;
-        let found = false;
-        while(!found && attempts < 5){
-            await yts(opts, function(err, r){
-                try{
-                    const videos = r.items;
-                    if(videos != undefined){
-                        playPlaylist(message, videos);
-                        found = true;
-                    }
+        await yts(opts, function(err, r){
+            try{
+                const videos = r.items;
+                if(videos != undefined){
+                    playPlaylist(message, videos);
                 }
-                catch(exception){
-                    console.log('playlist not found');
-                    // TODO display error
-                }
-            });
-            attempts++;
-        }
+            }
+            catch(exception){
+                console.log('playlist not found');
+                // TODO display error
+            }
+        });
     }
     else{
         const opts = {
@@ -112,23 +106,17 @@ async function getUrl(message, args){
             pageEnd: 2
         }
 
-        let attempts = 0;
-        let found = false;
-        while(!found && attempts < 5){
-            yts(opts, function(err, r){
-                try{
-                    const videos = r.videos;
-                    //console.log(videos);
-                    playUrl(message, videos[0]['url']);
-                    found = true;
-                }
-                catch(exception){
-                    console.log('video not found');
-                    // TODO display error
-                }
-            });
-            attempts++;
-        }
+        yts(opts, function(err, r){
+            try{
+                const videos = r.videos;
+                //console.log(videos);
+                playUrl(message, videos[0]['url']);
+            }
+            catch(exception){
+                console.log('video not found');
+                // TODO display error
+            }
+        });
     }
 }
 
