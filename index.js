@@ -10,25 +10,46 @@ const Discord = require('discord.js');
 const bot = new Discord.Client();
 const config = require('./config.json');
 const Http = new XMLHttpRequest();
+const fs = require('fs');
+
+const pastaMembers = ['206797799260553216', '240611985287413760', '264852817464786945', '121675133185294339'];
+const retardMembers = ['206797799260553216'];
 
 var servers = {};
 var currentSong;
+var currentMsg;
 
 bot.on('ready', () => {
     console.log('Online!');
 })
+
+async function showCurrent(message){
+    const embed = new Discord.MessageEmbed()
+    .setTitle(`Currently playing`)
+    .addField('Title', currentSong.title)
+    .setThumbnail(last(currentSong.player_response.videoDetails.thumbnail.thumbnails)['url'])
+    .setColor(0xF1C40F)
+    .setFooter(currentSong.video_url)
+
+    return message.channel.send(embed);
+}
+
+function last(array) {
+    return array[array.length - 1];
+}
 
 async function play(connection, message) {
     let server = servers[message.guild.id];
 
     currentSong = server.queue[0];
     server.dispatcher = connection.play(await ytdl.downloadFromInfo(currentSong, {type: 'opus', quality: 'highestaudio', filter: 'audioonly', requestOptions: { maxReconnects: 15, maxRetries: 5}}));
-    message.channel.send(`Now playing: ${currentSong.title}`);
+    currentMsg = await showCurrent(message);
 
     server.queue.shift();
 
     server.dispatcher.on("finish", function() {
         currentSong = undefined;
+        currentMsg.delete();
         console.log('Songs left: ' + server.queue.length);
         if(server.queue[0]){
             play(connection, message);
@@ -49,13 +70,15 @@ async function play(connection, message) {
 
 async function getUrl(message, args){
     const validate = await ytdl.validateURL(args[1]);
-    if(validate) return playUrl(message, args[1]);
+    if(validate) {
+        return playUrl(message, args[1]);
+    }
     console.log('Url not valid, looking for video');
     const searchTerm = args.splice(1).join(' ');
     yts(searchTerm, function(err, r){
         try{
             const videos = r.videos;
-            console.log(videos);
+            //console.log(videos);
             playUrl(message, videos[0]['url']);
         }
         catch(exception){
@@ -168,14 +191,28 @@ async function top5(message, args){
 }
 
 bot.on('message', message => {
-    if(message.member.id === "206797799260553216"){
-        if(Math.ceil(Math.random() * 20) == 1) message.channel.send('retard');
+    if(message.member != null){
+        if(retardMembers.includes(message.member.id)){
+            // 5% chance to call him a retard
+            if(Math.ceil(Math.random() * 20) == 1) message.channel.send('retard');
+    
+            // 5% chance to send dm featuring a copypasta
+            if(Math.ceil(Math.random() * 20) == 1) dmCopypasta(message);
+        }
+        // Sharky
+        else if(pastaMembers.includes(message.member.id)){
+            // 5% chance to send dm featuring a copypasta
+            if(Math.ceil(Math.random() * 20) == 1) dmCopypasta(message);
+        }
+        console.log(`Member id: ` + message.member.id);
     }
 
     if(message.content[0] !== config.Prefix) return;
     let args = message.content.substring(config.Prefix.length).split(" ");
+
+    const cmd = args[0].toLowerCase();
     const server = servers[message.guild.id];
-    switch(args[0]){
+    switch(cmd){
         case 'top5':
             if(!args[1]) return message.reply('Error, please enter a search term');
         
@@ -286,7 +323,7 @@ bot.on('message', message => {
                 upperLimit = parseInt(args[1]);
             }
             return message.reply(`you rolled a ${Math.ceil(Math.random() * upperLimit)} (1 - ${upperLimit})`);
-        case 'getToken':
+        case 'gettoken':
             if (message.member.hasPermission("ADMINISTRATOR")){
                 getAuthToken();
                 return message.reply('Refreshed auth token.');
@@ -322,6 +359,36 @@ bot.on('message', message => {
 })
 
 bot.login(config.Token);
+
+function dmCopypasta(message){
+    let req = new XMLHttpRequest();
+    req.open('GET', 'https://www.reddit.com/r/copypasta/.json', true);
+
+    req.send();
+
+    req.onreadystatechange = (e) => {
+        if(req.readyState == 4 && req.status >= 200 && req.status < 400){
+            try{
+                const data = JSON.parse(req.responseText);
+                const posts = data.data.children;
+                const postNr = Math.floor(Math.random() * posts.length);
+                const post = posts[postNr].data;
+                console.log('-');
+                console.log('-');
+                console.log('-');
+                console.log('POST HERE:');
+                console.log(post);
+                const msg = post.selftext;
+                message.author.send(msg);
+                console.log('DMd copypasta to: ' + message.author);
+            }
+            catch(err){
+                console.log(err);
+                console.log('Tried to dm a copypasta but something failed.');
+            }
+        }
+    };
+}
 
 function displayQueue(message){
     let server = servers[message.guild.id];
