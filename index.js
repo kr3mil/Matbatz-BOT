@@ -11,6 +11,7 @@ const bot = new Discord.Client();
 const config = require('./config.json');
 const Http = new XMLHttpRequest();
 const fs = require('fs');
+var prefix = '$';
 
 const pastaMembers = ['206797799260553216', '240611985287413760', '264852817464786945', '121675133185294339'];
 const retardMembers = ['206797799260553216'];
@@ -130,7 +131,7 @@ async function playUrl(message, url){
 function embedFaceit(message, args){
     const headers = {
         'accept': 'application/json',
-        'Authorization': `Bearer ${config.FaceITApiKey}`
+        'Authorization': `Bearer ${process.env.FaceitAPIKey}`
     };
 
     const options = {
@@ -168,7 +169,7 @@ async function top5(message, args){
 
     req.headers({
         "x-rapidapi-host": "deezerdevs-deezer.p.rapidapi.com",
-        "x-rapidapi-key": config.RapidAPIKey,
+        "x-rapidapi-key": process.env.RapidAPIKey,
         "useQueryString": true
     });
 
@@ -207,8 +208,8 @@ bot.on('message', message => {
         console.log(`Member id: ` + message.member.id);
     }
 
-    if(message.content[0] !== config.Prefix) return;
-    let args = message.content.substring(config.Prefix.length).split(" ");
+    if(message.content[0] !== prefix) return;
+    let args = message.content.substring(prefix.length).split(" ");
 
     const cmd = args[0].toLowerCase();
     const server = servers[message.guild.id];
@@ -257,11 +258,11 @@ bot.on('message', message => {
 
             if(args[1].includes('-')){
                 let charRealm = args[1].split('-');
-                const characterUrl = `https://eu.api.blizzard.com/profile/wow/character/${charRealm[1].toLowerCase()}/${charRealm[0].toLowerCase()}?namespace=profile-eu${config.AccessEnding}${config.AccessToken}`;
+                const characterUrl = `https://eu.api.blizzard.com/profile/wow/character/${charRealm[1].toLowerCase()}/${charRealm[0].toLowerCase()}?namespace=profile-eu${process.env.AccessEnding}${process.env.AccessToken}`;
                 Http.open("GET", characterUrl);
             }
             else{
-                const characterUrl = `https://eu.api.blizzard.com/profile/wow/character/thunderhorn/${args[1].toLowerCase()}?namespace=profile-eu${config.AccessEnding}${config.AccessToken}`;
+                const characterUrl = `https://eu.api.blizzard.com/profile/wow/character/thunderhorn/${args[1].toLowerCase()}?namespace=profile-eu${process.env.AccessEnding}${process.env.AccessToken}`;
                 Http.open("GET", characterUrl);
             }
             Http.send();
@@ -274,7 +275,7 @@ bot.on('message', message => {
 
                         // Get avatar
                         const avatarHttp = new XMLHttpRequest();
-                        const avatarURL = characterJS['media']['href'] + config.AccessEnding + config.AccessToken;
+                        const avatarURL = characterJS['media']['href'] + process.env.AccessEnding + process.env.AccessToken;
                         avatarHttp.open("GET", avatarURL);
                         avatarHttp.send();
 
@@ -298,11 +299,11 @@ bot.on('message', message => {
             if(!args[1]) return message.reply('Error, please enter a character name');
             if(args[1].includes('-')){
                 let charRealm = args[1].split('-');
-                const characterUrl = `https://eu.api.blizzard.com/profile/wow/character/${charRealm[1].toLowerCase()}/${charRealm[0].toLowerCase()}/character-media?namespace=profile-eu${config.AccessEnding}${config.AccessToken}`;
+                const characterUrl = `https://eu.api.blizzard.com/profile/wow/character/${charRealm[1].toLowerCase()}/${charRealm[0].toLowerCase()}/character-media?namespace=profile-eu${process.env.AccessEnding}${process.env.AccessToken}`;
                 Http.open("GET", characterUrl);
             }
             else{
-                const characterUrl = `https://eu.api.blizzard.com/profile/wow/character/thunderhorn/${args[1].toLowerCase()}/character-media?namespace=profile-eu${config.AccessEnding}${config.AccessToken}`;
+                const characterUrl = `https://eu.api.blizzard.com/profile/wow/character/thunderhorn/${args[1].toLowerCase()}/character-media?namespace=profile-eu${process.env.AccessEnding}${process.env.AccessToken}`;
                 Http.open("GET", characterUrl);
             }
             Http.send();
@@ -358,7 +359,7 @@ bot.on('message', message => {
     }
 })
 
-bot.login(config.Token);
+bot.login(process.env.Token);
 
 function dmCopypasta(message){
     let req = new XMLHttpRequest();
@@ -434,7 +435,7 @@ function generateCharacterEmbed(characterJS, avatarJS){
 }
 
 function getAuthToken(){
-    const command = `curl -u ${config.ClientID}:${config.ClientSecret} -d grant_type=client_credentials https://us.battle.net/oauth/token`;
+    const command = `curl -u ${process.env.ClientID}:${process.env.ClientSecret} -d grant_type=client_credentials https://us.battle.net/oauth/token`;
 
     child = exec(command, function(error, stdout, stderr){
         console.log('stdout: ' + stdout);
@@ -449,7 +450,7 @@ function getAuthToken(){
             let token = json["access_token"];
             if(token !== null){
                 console.log('set token to: ' + token);
-                config.AccessToken = token;
+                process.env.AccessToken = token;
             }
         }
     });
