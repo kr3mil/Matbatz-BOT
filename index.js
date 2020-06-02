@@ -217,9 +217,11 @@ async function playUrl(message, url){
 }
 
 function embedFaceit(message, args){
+    if(!args[1]) return message.reply('Error, please enter a faceit name');
+    console.log('Getting elo on player: ' + args[1]);
     const headers = {
         'accept': 'application/json',
-        'Authorization': `Bearer ${config.FaceitAPIKey}`
+        'Authorization': `Bearer ${config.FaceITApiKey}`
     };
 
     const options = {
@@ -242,8 +244,12 @@ function embedFaceit(message, args){
                 return message.channel.send(embed);
             }
             catch{
-
+                console.log('error getting faceit stats');
             }
+        }
+        else{
+            console.log('error getting faceit stats');
+            console.log(body);
         }
     });
 }
