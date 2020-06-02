@@ -477,33 +477,38 @@ bot.on('message', message => {
 bot.login(config.Token);
 
 function dmCopypasta(message){
-    let req = new XMLHttpRequest();
-    req.open('GET', 'https://www.reddit.com/r/copypasta/.json', true);
-
-    req.send();
-
-    req.onreadystatechange = (e) => {
-        if(req.readyState == 4 && req.status >= 200 && req.status < 400){
-            try{
-                const data = JSON.parse(req.responseText);
-                const posts = data.data.children;
-                const postNr = Math.floor(Math.random() * posts.length);
-                const post = posts[postNr].data;
-                console.log('-');
-                console.log('-');
-                console.log('-');
-                console.log('POST HERE:');
-                console.log(post);
-                const msg = post.selftext;
-                message.author.send(msg);
-                console.log('DMd copypasta to: ' + message.author);
+    try{
+        let req = new XMLHttpRequest();
+        req.open('GET', 'https://www.reddit.com/r/copypasta/.json', true);
+    
+        req.send();
+    
+        req.onreadystatechange = (e) => {
+            if(req.readyState == 4 && req.status >= 200 && req.status < 400){
+                try{
+                    const data = JSON.parse(req.responseText);
+                    const posts = data.data.children;
+                    const postNr = Math.floor(Math.random() * posts.length);
+                    const post = posts[postNr].data;
+                    console.log('-');
+                    console.log('-');
+                    console.log('-');
+                    console.log('POST HERE:');
+                    console.log(post);
+                    const msg = post.selftext;
+                    message.author.send(msg);
+                    console.log('DMd copypasta to: ' + message.author);
+                }
+                catch(err){
+                    //console.log(err);
+                    console.log('Tried to dm a copypasta but something failed.');
+                }
             }
-            catch(err){
-                console.log(err);
-                console.log('Tried to dm a copypasta but something failed.');
-            }
-        }
-    };
+        };
+    }
+    catch{
+        message.author.send('so i tried to send you a copypasta fam but something messed up sorry');
+    }
 }
 
 function displayQueue(message){
