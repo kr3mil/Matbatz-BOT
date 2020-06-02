@@ -19,21 +19,26 @@ const retardMembers = ['206797799260553216'];
 var servers = {};
 var currentSong;
 var currentMsg;
+var previousSong;
 
 bot.on('ready', () => {
     console.log('Online!');
 })
 
-async function showCurrent(message){
+function createEmbed(song, title){
     const embed = new Discord.MessageEmbed()
-    .setTitle(`Currently playing`)
-    .addField('Title', currentSong.song.title)
-    .addField('Requester', currentSong.req)
-    .setThumbnail(last(currentSong.song.player_response.videoDetails.thumbnail.thumbnails)['url'])
+    .setTitle(title)
+    .addField('Title', song.song.title)
+    .addField('Requester', song.req)
+    .setThumbnail(last(song.song.player_response.videoDetails.thumbnail.thumbnails)['url'])
     .setColor(0xF1C40F)
-    .setFooter(currentSong.song.video_url)
+    .setFooter(song.song.video_url)
 
-    return message.channel.send(embed);
+    return embed;
+}
+
+async function showCurrent(message){
+    return message.channel.send(createEmbed(currentSong, 'Currently playing'));
 }
 
 function last(array) {
@@ -50,6 +55,7 @@ async function play(connection, message) {
     server.queue.shift();
 
     server.dispatcher.on("finish", function() {
+        previousSong = currentSong;
         currentSong = undefined;
         currentMsg.delete();
         console.log('Songs left: ' + server.queue.length);
@@ -70,6 +76,42 @@ async function play(connection, message) {
     })
 }
 
+async function ytPlaylistSearch(message, opts, attempts = 0){
+    if(attempts < 5){
+        await yts(opts, function(err, r){
+        try{
+            const videos = r.items;
+            if(videos != undefined){
+                playPlaylist(message, videos);
+            }
+        }
+        catch(exception){
+            console.log('playlist not found, attempt ' + attempts);
+            ytPlaylistSearch(message, opts, attempts++);
+        }
+    });
+}
+}
+
+async function ytVidSearch(message, opts, attempts = 0){
+    if(attempts < 5){
+        await yts(opts, function(err, r){
+            try{
+                const videos = r.videos;
+                //console.log(videos);
+                playUrl(message, videos[0]['url']);
+            }
+            catch(exception){
+                console.log('video not found, attempt ' + attempts);
+                ytVidSearch(message, opts, attempts++);
+            }
+        });
+    }
+    else{
+        message.channel.send('Could not find video with search term: ' + opts.query);
+    }
+}
+
 async function getUrl(message, args){
     const validate = await ytdl.validateURL(args[1]);
     if(validate) {
@@ -86,18 +128,7 @@ async function getUrl(message, args){
             listId: playlistId
         }
 
-        await yts(opts, function(err, r){
-            try{
-                const videos = r.items;
-                if(videos != undefined){
-                    playPlaylist(message, videos);
-                }
-            }
-            catch(exception){
-                console.log('playlist not found');
-                // TODO display error
-            }
-        });
+        await ytPlaylistSearch(message, opts);
     }
     else{
         const opts = {
@@ -106,17 +137,7 @@ async function getUrl(message, args){
             pageEnd: 2
         }
 
-        yts(opts, function(err, r){
-            try{
-                const videos = r.videos;
-                //console.log(videos);
-                playUrl(message, videos[0]['url']);
-            }
-            catch(exception){
-                console.log('video not found');
-                // TODO display error
-            }
-        });
+        await ytVidSearch(message, opts);
     }
 }
 
@@ -263,14 +284,11 @@ bot.on('message', message => {
         if(retardMembers.includes(message.member.id)){
             // 5% chance to call him a retard
             if(Math.ceil(Math.random() * 20) == 1) message.channel.send('retard');
-    
-            // 5% chance to send dm featuring a copypasta
-            if(Math.ceil(Math.random() * 20) == 1) dmCopypasta(message);
         }
         // Sharky
         else if(pastaMembers.includes(message.member.id)){
             // 5% chance to send dm featuring a copypasta
-            if(Math.ceil(Math.random() * 20) == 1) dmCopypasta(message);
+            if(Math.ceil(Math.random() * 100) == 1) dmCopypasta(message);
         }
         console.log(`Member id: ` + message.member.id);
     }
@@ -293,6 +311,7 @@ bot.on('message', message => {
             break;
         case 'clear':
             server.queue = [];
+            currentSong = [];
             if(server.dispatcher) server.dispatcher.end();
             break;
         case 'play':
@@ -339,6 +358,16 @@ bot.on('message', message => {
         case 'elo':
             embedFaceit(message, args);
             break;
+        case 'previous':
+            if(previousSong != undefined){
+                return message.channel.send(createEmbed(previousSong, 'Previous song'));
+            }
+            break;
+        case 'prev':
+        if(previousSong != undefined){
+            return message.channel.send(createEmbed(previousSong, 'Previous song'));
+        }
+        break;
         case 'lookup':
             if(!args[1]) return message.reply('Error, please enter a character name');
 
@@ -424,7 +453,7 @@ bot.on('message', message => {
             break;
         case 'current':
             if(currentSong != undefined){
-                message.channel.send(`Current song: ${currentSong.title}`);
+                message.channel.send(`Current song: ${currentSong.song.title}`);
             }
             break;
         case 'remove':
