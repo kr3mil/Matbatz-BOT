@@ -8,7 +8,6 @@ const ytdl = require("ytdl-core-discord");
 const yts = require('yt-search');
 const Discord = require('discord.js');
 const bot = new Discord.Client();
-const config = require('./config.json');
 const Http = new XMLHttpRequest();
 const fs = require('fs');
 var prefix = '$';
