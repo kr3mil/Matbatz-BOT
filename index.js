@@ -27,10 +27,11 @@ bot.on('ready', () => {
 async function showCurrent(message){
     const embed = new Discord.MessageEmbed()
     .setTitle(`Currently playing`)
-    .addField('Title', currentSong.title)
-    .setThumbnail(last(currentSong.player_response.videoDetails.thumbnail.thumbnails)['url'])
+    .addField('Title', currentSong.song.title)
+    .addField('Requester', currentSong.req)
+    .setThumbnail(last(currentSong.song.player_response.videoDetails.thumbnail.thumbnails)['url'])
     .setColor(0xF1C40F)
-    .setFooter(currentSong.video_url)
+    .setFooter(currentSong.song.video_url)
 
     return message.channel.send(embed);
 }
@@ -43,7 +44,7 @@ async function play(connection, message) {
     let server = servers[message.guild.id];
 
     currentSong = server.queue[0];
-    server.dispatcher = connection.play(await ytdl.downloadFromInfo(currentSong, {type: 'opus', quality: 'highestaudio', filter: 'audioonly', requestOptions: { maxReconnects: 15, maxRetries: 5}}));
+    server.dispatcher = connection.play(await ytdl.downloadFromInfo(currentSong.song, {type: 'opus', quality: 'highestaudio', filter: 'audioonly', requestOptions: { maxReconnects: 15, maxRetries: 5}}));
     currentMsg = await showCurrent(message);
 
     server.queue.shift();
@@ -72,17 +73,6 @@ async function play(connection, message) {
 async function getUrl(message, args){
     const validate = await ytdl.validateURL(args[1]);
     if(validate) {
-        // Maybe the playlist check should go here?
-        await yts(args[1], function(err, r){
-            try{
-                const playlists = r.playlists;
-                console.log(r.playlists[0]);
-            }
-            catch(err){
-                console.log('error getting playlist');
-            }
-        });
-
         return playUrl(message, args[1]);
     }
     console.log('Url not valid, looking for video');
@@ -96,20 +86,24 @@ async function getUrl(message, args){
             listId: playlistId
         }
 
-        await yts(opts, function(err, r){
-            try{
-                const videos = r.items;
-                if(videos != undefined){
-                    playPlaylist(message, videos);
+        let attempts = 0;
+        let found = false;
+        while(!found && attempts < 5){
+            await yts(opts, function(err, r){
+                try{
+                    const videos = r.items;
+                    if(videos != undefined){
+                        playPlaylist(message, videos);
+                        found = true;
+                    }
                 }
-                //console.log(playlists[0].length);
-                //playUrl(message, videos[0]['url']);
-            }
-            catch(exception){
-                console.log('playlist not found');
-                // TODO display error
-            }
-        });
+                catch(exception){
+                    console.log('playlist not found');
+                    // TODO display error
+                }
+            });
+            attempts++;
+        }
     }
     else{
         const opts = {
@@ -118,18 +112,23 @@ async function getUrl(message, args){
             pageEnd: 2
         }
 
-        yts(opts, function(err, r){
-            try{
-                const videos = r.videos;
-                //console.log(videos);
-                
-                playUrl(message, videos[0]['url']);
-            }
-            catch(exception){
-                console.log('video not found');
-                // TODO display error
-            }
-        });
+        let attempts = 0;
+        let found = false;
+        while(!found && attempts < 5){
+            yts(opts, function(err, r){
+                try{
+                    const videos = r.videos;
+                    //console.log(videos);
+                    playUrl(message, videos[0]['url']);
+                    found = true;
+                }
+                catch(exception){
+                    console.log('video not found');
+                    // TODO display error
+                }
+            });
+            attempts++;
+        }
     }
 }
 
@@ -159,7 +158,11 @@ async function playPlaylist(message, videos){
         try{
             const song = await ytdl.getInfo(videos[i].url);
             if(song != undefined){
-                server.queue.push(song);
+                let name = message.member.nickname;
+                if(name == undefined){
+                    name = message.member.user.username;
+                }
+                server.queue.push({song: song, req: name});
                 itemsAdded++;
                 console.log(`video ${itemsAdded} added to queue`);
                 if(message.guild.voice){
@@ -186,7 +189,11 @@ async function playUrl(message, url){
 
     let server = servers[message.guild.id];
     console.log('Queue size: ' + server.queue.length);
-    server.queue.push(song);
+    let name = message.member.nickname;
+    if(name == undefined){
+        name = message.member.user.username;
+    }
+    server.queue.push({song: song, req: name});
     message.channel.send(`'${song.title}' has been added to the queue.`);
     console.log('Queue size: ' + server.queue.length);
 
@@ -319,6 +326,25 @@ bot.on('message', message => {
 
             getUrl(message, args);
             break;
+        case 'p':
+            if(!args[1]){
+                message.channel.send("You need to provide a link!");
+                return;
+            }
+
+            if(!message.member.voice.channel){
+                message.channel.send("You must be in a channel to play the bot.");
+                return;
+            }
+            
+            if(!servers[message.guild.id]){
+                console.log('Adding server to servers array');
+                servers[message.guild.id] = {
+                queue: []
+            }}
+
+            getUrl(message, args);
+            break;
         case 'skip':
             if(server.dispatcher) server.dispatcher.end();
             break;
@@ -417,9 +443,9 @@ bot.on('message', message => {
             if(!args[1]) return message.reply('Error, please enter a song title');
             let searchTerm = args.slice(1).join(' ');
             console.log(`searching for ${searchTerm} in ${server.queue.length} songs`);
-            let index = server.queue.findIndex(x => x.title.toLowerCase().includes(searchTerm.toLowerCase()));
+            let index = server.queue.findIndex(x => x.song.title.toLowerCase().includes(searchTerm.toLowerCase()));
             if(index > -1){
-                let removedSong = server.queue[index];
+                let removedSong = server.queue[index].song;
                 server.queue.splice(index, 1);
                 return message.channel.send(`${removedSong.title} removed from queue`);
             }
@@ -466,8 +492,8 @@ function dmCopypasta(message){
 function displayQueue(message){
     let server = servers[message.guild.id];
     let msg = "```Queue: " + server.queue.length + "\n";
-    for(let i = 0; i < server.queue.length; i++){
-        msg += "  " + server.queue[i].title + "\n";
+    for(let i = 0; i < Math.min(server.queue.length, 5); i++){
+        msg += "  " + server.queue[i].song.title + "\n";
     }
     return message.channel.send(msg += "```");
 }
