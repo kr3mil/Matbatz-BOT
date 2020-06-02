@@ -5,12 +5,13 @@ var exec = require('child_process').exec;
 
 const request = require('request');
 const ytdl = require("ytdl-core-discord");
+//var config = require('./config.json');
+var config = process.env;
 const yts = require('yt-search');
 const Discord = require('discord.js');
 const bot = new Discord.Client();
 const Http = new XMLHttpRequest();
 const fs = require('fs');
-var prefix = '$';
 
 const pastaMembers = ['206797799260553216', '240611985287413760', '264852817464786945', '121675133185294339'];
 const retardMembers = ['206797799260553216'];
@@ -71,21 +72,65 @@ async function play(connection, message) {
 async function getUrl(message, args){
     const validate = await ytdl.validateURL(args[1]);
     if(validate) {
+        // Maybe the playlist check should go here?
+        await yts(args[1], function(err, r){
+            try{
+                const playlists = r.playlists;
+                console.log(r.playlists[0]);
+            }
+            catch(err){
+                console.log('error getting playlist');
+            }
+        });
+
         return playUrl(message, args[1]);
     }
     console.log('Url not valid, looking for video');
     const searchTerm = args.splice(1).join(' ');
-    yts(searchTerm, function(err, r){
-        try{
-            const videos = r.videos;
-            //console.log(videos);
-            playUrl(message, videos[0]['url']);
+    console.log('Search term: ' + searchTerm);
+
+    if(searchTerm.includes('?list=')){
+        let playlistId = searchTerm.split("list=")[1];
+        console.log('playlist: ' + playlistId)
+        const opts = {
+            listId: playlistId
         }
-        catch(exception){
-            console.log('video not found');
-            // TODO display error
+
+        await yts(opts, function(err, r){
+            try{
+                const videos = r.items;
+                if(videos != undefined){
+                    playPlaylist(message, videos);
+                }
+                //console.log(playlists[0].length);
+                //playUrl(message, videos[0]['url']);
+            }
+            catch(exception){
+                console.log('playlist not found');
+                // TODO display error
+            }
+        });
+    }
+    else{
+        const opts = {
+            query: searchTerm,
+            pageStart: 1,
+            pageEnd: 2
         }
-    });
+
+        yts(opts, function(err, r){
+            try{
+                const videos = r.videos;
+                //console.log(videos);
+                
+                playUrl(message, videos[0]['url']);
+            }
+            catch(exception){
+                console.log('video not found');
+                // TODO display error
+            }
+        });
+    }
 }
 
 async function search(message, args){
@@ -106,6 +151,34 @@ async function search(message, args){
     });
 }
 
+async function playPlaylist(message, videos){
+    console.log('Time to add playlist');
+    let server = servers[message.guild.id];
+    let itemsAdded = 0;
+    for(let i = 0; i < videos.length; i++){
+        try{
+            const song = await ytdl.getInfo(videos[i].url);
+            if(song != undefined){
+                server.queue.push(song);
+                itemsAdded++;
+                console.log(`video ${itemsAdded} added to queue`);
+                if(message.guild.voice){
+                    if(message.guild.voice.connection) continue;
+                }
+    
+                message.member.voice.channel.join().then(function(connection){
+                    console.log('Bot not in voice channel, connecting');
+                    play(connection, message);
+                });
+            }
+        }
+        catch(err){
+            console.log('Error getting video');
+        }
+    }
+    message.channel.send(`${itemsAdded} songs added to queue`);
+}
+
 async function playUrl(message, url){
     console.log('got url');
     console.log(url);
@@ -124,13 +197,13 @@ async function playUrl(message, url){
     message.member.voice.channel.join().then(function(connection){
         console.log('Bot not in voice channel, connecting');
         play(connection, message);
-        });
+    });
 }
 
 function embedFaceit(message, args){
     const headers = {
         'accept': 'application/json',
-        'Authorization': `Bearer ${process.env.FaceitAPIKey}`
+        'Authorization': `Bearer ${config.FaceitAPIKey}`
     };
 
     const options = {
@@ -168,7 +241,7 @@ async function top5(message, args){
 
     req.headers({
         "x-rapidapi-host": "deezerdevs-deezer.p.rapidapi.com",
-        "x-rapidapi-key": process.env.RapidAPIKey,
+        "x-rapidapi-key": config.RapidAPIKey,
         "useQueryString": true
     });
 
@@ -207,8 +280,8 @@ bot.on('message', message => {
         console.log(`Member id: ` + message.member.id);
     }
 
-    if(message.content[0] !== prefix) return;
-    let args = message.content.substring(prefix.length).split(" ");
+    if(message.content[0] !== config.Prefix) return;
+    let args = message.content.substring(config.Prefix.length).split(" ");
 
     const cmd = args[0].toLowerCase();
     const server = servers[message.guild.id];
@@ -257,11 +330,11 @@ bot.on('message', message => {
 
             if(args[1].includes('-')){
                 let charRealm = args[1].split('-');
-                const characterUrl = `https://eu.api.blizzard.com/profile/wow/character/${charRealm[1].toLowerCase()}/${charRealm[0].toLowerCase()}?namespace=profile-eu${process.env.AccessEnding}${process.env.AccessToken}`;
+                const characterUrl = `https://eu.api.blizzard.com/profile/wow/character/${charRealm[1].toLowerCase()}/${charRealm[0].toLowerCase()}?namespace=profile-eu${config.AccessEnding}${config.AccessToken}`;
                 Http.open("GET", characterUrl);
             }
             else{
-                const characterUrl = `https://eu.api.blizzard.com/profile/wow/character/thunderhorn/${args[1].toLowerCase()}?namespace=profile-eu${process.env.AccessEnding}${process.env.AccessToken}`;
+                const characterUrl = `https://eu.api.blizzard.com/profile/wow/character/thunderhorn/${args[1].toLowerCase()}?namespace=profile-eu${config.AccessEnding}${config.AccessToken}`;
                 Http.open("GET", characterUrl);
             }
             Http.send();
@@ -274,7 +347,7 @@ bot.on('message', message => {
 
                         // Get avatar
                         const avatarHttp = new XMLHttpRequest();
-                        const avatarURL = characterJS['media']['href'] + process.env.AccessEnding + process.env.AccessToken;
+                        const avatarURL = characterJS['media']['href'] + config.AccessEnding + config.AccessToken;
                         avatarHttp.open("GET", avatarURL);
                         avatarHttp.send();
 
@@ -298,11 +371,11 @@ bot.on('message', message => {
             if(!args[1]) return message.reply('Error, please enter a character name');
             if(args[1].includes('-')){
                 let charRealm = args[1].split('-');
-                const characterUrl = `https://eu.api.blizzard.com/profile/wow/character/${charRealm[1].toLowerCase()}/${charRealm[0].toLowerCase()}/character-media?namespace=profile-eu${process.env.AccessEnding}${process.env.AccessToken}`;
+                const characterUrl = `https://eu.api.blizzard.com/profile/wow/character/${charRealm[1].toLowerCase()}/${charRealm[0].toLowerCase()}/character-media?namespace=profile-eu${config.AccessEnding}${config.AccessToken}`;
                 Http.open("GET", characterUrl);
             }
             else{
-                const characterUrl = `https://eu.api.blizzard.com/profile/wow/character/thunderhorn/${args[1].toLowerCase()}/character-media?namespace=profile-eu${process.env.AccessEnding}${process.env.AccessToken}`;
+                const characterUrl = `https://eu.api.blizzard.com/profile/wow/character/thunderhorn/${args[1].toLowerCase()}/character-media?namespace=profile-eu${config.AccessEnding}${config.AccessToken}`;
                 Http.open("GET", characterUrl);
             }
             Http.send();
@@ -358,7 +431,7 @@ bot.on('message', message => {
     }
 })
 
-bot.login(process.env.Token);
+bot.login(config.Token);
 
 function dmCopypasta(message){
     let req = new XMLHttpRequest();
@@ -400,6 +473,7 @@ function displayQueue(message){
 }
 
 function dadJoke(message){
+    console.log('dad joke called');
     const headers = {
         'Accept': 'application/json'
     };
@@ -434,7 +508,7 @@ function generateCharacterEmbed(characterJS, avatarJS){
 }
 
 function getAuthToken(){
-    const command = `curl -u ${process.env.ClientID}:${process.env.ClientSecret} -d grant_type=client_credentials https://us.battle.net/oauth/token`;
+    const command = `curl -u ${config.ClientID}:${config.ClientSecret} -d grant_type=client_credentials https://us.battle.net/oauth/token`;
 
     child = exec(command, function(error, stdout, stderr){
         console.log('stdout: ' + stdout);
@@ -449,7 +523,7 @@ function getAuthToken(){
             let token = json["access_token"];
             if(token !== null){
                 console.log('set token to: ' + token);
-                process.env.AccessToken = token;
+                config.AccessToken = token;
             }
         }
     });
