@@ -141,22 +141,29 @@ async function getUrl(message, args){
     }
 }
 
-async function search(message, args){
+async function search(message, args, attmepts = 0){
     const searchTerm = args.splice(1).join(' ');
-    yts(searchTerm, function(err, r){
-        try{
-            const videos = r.videos;
-            let msg = "```" + "Top 5 YouTube results:\n";
-            for(let i = 0; i < 5; i++){
-                msg += "  " + videos[i]['title'] + " - " + videos[i]['url'] + "\n";
+    if(attmepts < 5){
+        yts(searchTerm, function(err, r){
+            try{
+                const videos = r.videos;
+                let msg = "```" + "Top 5 YouTube results:\n";
+                for(let i = 0; i < 5; i++){
+                    msg += "  " + videos[i]['title'] + " - " + videos[i]['url'] + "\n";
+                }
+                msg += "```";
+                return message.channel.send(msg);
             }
-            msg += "```";
-            return message.channel.send(msg);
-        }
-        catch{
-            // TODO display error
-        }
-    });
+            catch{
+                // TODO display error
+                console.log('Error searching, attempt ' + attempts);
+                search(message, args, attempts++);
+            }
+        });
+    }
+    else{
+        message.channel.send('Could not find any videos using the search term: ' + searchTerm);
+    }
 }
 
 async function playPlaylist(message, videos){
