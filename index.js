@@ -20,6 +20,7 @@ var servers = {};
 var currentSong;
 var currentMsg;
 var previousSong;
+var ytdlStream;
 
 bot.on('ready', () => {
     console.log('Online!');
@@ -49,7 +50,10 @@ async function play(connection, message) {
     let server = servers[message.guild.id];
 
     currentSong = server.queue[0];
-    server.dispatcher = connection.play(await ytdl.downloadFromInfo(currentSong.song, {type: 'opus', quality: 'highestaudio', filter: 'audioonly', requestOptions: { maxReconnects: 15, maxRetries: 5}}));
+    //ytdlStream = await ytdl.downloadFromInfo(currentSong.song, {type: 'opus', quality: 'highestaudio', filter: 'audioonly', requestOptions: { maxReconnects: 15, maxRetries: 5}});
+    //ytdlStream = await ytdl.download(currentSong.video_url, )
+    ytdlStream = await ytdl(currentSong.song.video_url);
+    server.dispatcher = connection.play(ytdlStream, { type: 'opus' });
     currentMsg = await showCurrent(message);
 
     server.queue.shift();
@@ -57,6 +61,7 @@ async function play(connection, message) {
     server.dispatcher.on("finish", function() {
         previousSong = currentSong;
         currentSong = undefined;
+        ytdlStream = undefined;
         currentMsg.delete();
         console.log('Songs left: ' + server.queue.length);
         if(server.queue[0]){
@@ -141,22 +146,29 @@ async function getUrl(message, args){
     }
 }
 
-async function search(message, args){
+async function search(message, args, attmepts = 0){
     const searchTerm = args.splice(1).join(' ');
-    yts(searchTerm, function(err, r){
-        try{
-            const videos = r.videos;
-            let msg = "```" + "Top 5 YouTube results:\n";
-            for(let i = 0; i < 5; i++){
-                msg += "  " + videos[i]['title'] + " - " + videos[i]['url'] + "\n";
+    if(attmepts < 5){
+        yts(searchTerm, function(err, r){
+            try{
+                const videos = r.videos;
+                let msg = "```" + "Top 5 YouTube results:\n";
+                for(let i = 0; i < 5; i++){
+                    msg += "  " + videos[i]['title'] + " - " + videos[i]['url'] + "\n";
+                }
+                msg += "```";
+                return message.channel.send(msg);
             }
-            msg += "```";
-            return message.channel.send(msg);
-        }
-        catch{
-            // TODO display error
-        }
-    });
+            catch{
+                // TODO display error
+                console.log('Error searching, attempt ' + attempts);
+                search(message, args, attempts++);
+            }
+        });
+    }
+    else{
+        message.channel.send('Could not find any videos using the search term: ' + searchTerm);
+    }
 }
 
 async function playPlaylist(message, videos){
@@ -360,6 +372,17 @@ bot.on('message', message => {
             break;
         case 'skip':
             if(server.dispatcher) server.dispatcher.end();
+            break;
+        case 'pause':
+            if(server.dispatcher){
+                //ytdlStream.pause(true);
+                console.log('paused');
+                //console.log(ytdlStream);
+                server.dispatcher.pause();
+            }
+            break;
+        case 'resume':
+            if(server.dispatcher) server.dispatcher.resume();
             break;
         case 'elo':
             embedFaceit(message, args);
