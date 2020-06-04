@@ -12,7 +12,6 @@
     "@discordjs/opus": "^0.3.2",
     "discord.js": "^12.2.0",
     "ffmpeg-static": "^4.2.2",
-    "opusscript": "0.0.7",
     "prism-media": "^1.2.2",
     "unirest": "^0.6.0",
     "xmlhttprequest": "^1.8.0",
