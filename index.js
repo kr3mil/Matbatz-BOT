@@ -46,38 +46,55 @@ function last(array) {
 }
 
 async function play(connection, message) {
-    let server = servers[message.guild.id];
+    try{
+        let server = servers[message.guild.id];
 
-    currentSong = server.queue[0];
-    //ytdlStream = await ytdl.downloadFromInfo(currentSong.song, {type: 'opus', quality: 'highestaudio', filter: 'audioonly', requestOptions: { maxReconnects: 15, maxRetries: 5}});
-    //ytdlStream = await ytdl.download(currentSong.video_url, )
-    ytdlStream = await ytdl(currentSong.song.video_url);
-    server.dispatcher = connection.play(ytdlStream, { type: 'opus' });
-    currentMsg = await showCurrent(message);
-
-    server.queue.shift();
-
-    server.dispatcher.on("finish", function() {
-        previousSong = currentSong;
-        currentSong = undefined;
-        ytdlStream = undefined;
-        currentMsg.delete();
-        console.log('Songs left: ' + server.queue.length);
-        if(server.queue[0]){
-            play(connection, message);
-        }else{
-            // Change so it disconnects after a while?
-            connection.disconnect();
+        currentSong = server.queue[0];
+        //ytdlStream = await ytdl.downloadFromInfo(currentSong.song, {type: 'opus', quality: 'highestaudio', filter: 'audioonly', requestOptions: { maxReconnects: 15, maxRetries: 5}});
+        // TODO add reconects back in ect
+        ytdlStream = await ytdl(currentSong.song.video_url);
+        server.dispatcher = connection.play(ytdlStream, { type: 'opus' });
+        currentMsg = await showCurrent(message);
+    
+        server.queue.shift();
+    
+        server.dispatcher.on("finish", function() {
+            previousSong = currentSong;
+            currentSong = undefined;
+            ytdlStream = undefined;
+            currentMsg.delete();
+            console.log('Songs left: ' + server.queue.length);
+            if(server.queue[0]){
+                play(connection, message);
+            }else{
+                // Change so it disconnects after a while?
+                connection.disconnect();
+            }
+        });
+    
+        server.dispatcher.on("reconnect", function() {
+            console.log('Tried to reconnect?');
+        });
+    
+        server.dispatcher.on("retry", function() {
+            console.log('Tried to retry?');
+        })
+    }
+    catch{
+        console.log('error playing song, skipping');
+        if(server.dispatcher) server.dispatcher.end();
+        else{
+            currentSong = undefined;
+            ytdlStream = undefined;
+            if(currentMsg) currentMsg.delete();
+            if(server.queue[0]){
+                play(connection, message);
+            }else{
+                // Change so it disconnects after a while?
+                connection.disconnect();
+            }
         }
-    });
-
-    server.dispatcher.on("reconnect", function() {
-        console.log('Tried to reconnect?');
-    });
-
-    server.dispatcher.on("retry", function() {
-        console.log('Tried to retry?');
-    })
+    }
 }
 
 async function ytPlaylistSearch(message, opts, attempts = 0){
