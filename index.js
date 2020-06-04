@@ -195,6 +195,10 @@ async function playPlaylist(message, videos){
         try{
             const song = await ytdl.getInfo(videos[i].url);
             if(song != undefined){
+                if(song.player_response.playabilityStatus.status != 'OK'){
+                    console.log('video unavailable, not adding');
+                    continue;
+                }
                 let name = message.member.nickname;
                 if(name == undefined){
                     name = message.member.user.username;
