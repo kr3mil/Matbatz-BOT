@@ -15,7 +15,6 @@ const fs = require('fs');
 
 const pastaMembers = ['206797799260553216', '240611985287413760', '264852817464786945', '121675133185294339'];
 const retardMembers = ['206797799260553216'];
-
 var servers = {};
 var currentSong;
 var currentMsg;
