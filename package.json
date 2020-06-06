@@ -11,6 +11,7 @@
   "dependencies": {
     "discord.js": "^12.2.0",
     "ffmpeg-static": "^4.2.2",
+    "jimp": "^0.13.0",
     "opusscript": "0.0.7",
     "prism-media": "^1.2.2",
     "unirest": "^0.6.0",

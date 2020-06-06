@@ -12,6 +12,7 @@ const Discord = require('discord.js');
 const bot = new Discord.Client();
 const Http = new XMLHttpRequest();
 const fs = require('fs');
+const Jimp = require('jimp');
 
 const pastaMembers = ['206797799260553216', '240611985287413760', '264852817464786945', '121675133185294339'];
 const retardMembers = ['206797799260553216'];
@@ -24,6 +25,17 @@ var ytdlStream;
 bot.on('ready', () => {
     console.log('Online!');
 })
+
+async function deepFry(message){
+    if(message.attachments.size > 0){
+        console.log('message has image');
+
+        let pixelValue = Math.floor(Math.random() * 2 + 2);
+        let imageUrl = message.attachments.array()[0].url;
+        await Jimp.read(imageUrl).then(image => image.pixelate(pixelValue).contrast(0.95).posterize(8).write('deepfry.png'));
+        await message.channel.send({files: ['deepfry.png']});
+    }
+}
 
 function createEmbed(song, title){
     const embed = new Discord.MessageEmbed()
@@ -228,24 +240,29 @@ async function playUrl(message, url){
     console.log(url);
     const song = await ytdl.getInfo(url);
 
-    let server = servers[message.guild.id];
-    console.log('Queue size: ' + server.queue.length);
-    let name = message.member.nickname;
-    if(name == undefined){
-        name = message.member.user.username;
+    if(song.player_response.playabilityStatus.status != 'OK'){
+        return channel.message.send('Video unavailable');
     }
-    server.queue.push({song: song, req: name});
-    message.channel.send(`'${song.title}' has been added to the queue.`);
-    console.log('Queue size: ' + server.queue.length);
-
-    if(message.guild.voice){
-        if(message.guild.voice.connection) return;
-    }
+    else{
+        let server = servers[message.guild.id];
+        console.log('Queue size: ' + server.queue.length);
+        let name = message.member.nickname;
+        if(name == undefined){
+            name = message.member.user.username;
+        }
+        server.queue.push({song: song, req: name});
+        message.channel.send(`'${song.title}' has been added to the queue.`);
+        console.log('Queue size: ' + server.queue.length);
     
-    message.member.voice.channel.join().then(function(connection){
-        console.log('Bot not in voice channel, connecting');
-        play(connection, message);
-    });
+        if(message.guild.voice){
+            if(message.guild.voice.connection) return;
+        }
+        
+        message.member.voice.channel.join().then(function(connection){
+            console.log('Bot not in voice channel, connecting');
+            play(connection, message);
+        });
+    }
 }
 
 function embedFaceit(message, args){
@@ -317,13 +334,37 @@ async function top5(message, args){
     });
 }
 
+async function attack(message, args){
+    if(!args[1]) return;
+
+    let req = new XMLHttpRequest();
+    req.open('GET', 'https://insult.mattbas.org/api/insult.txt?who=DEL', true);
+
+    console.log(encodeURI(args[1]));
+
+    req.send();
+
+    req.onreadystatechange = (e) => {
+        if(req.readyState == 4 && req.status >= 200 && req.status < 400){
+            try{
+                message.channel.send(`${args[1]}${req.responseText.substr(3)}`);
+            }
+            catch(err){
+                //console.log(err);
+                console.log('Failed to get insult');
+            }
+        }
+    };
+}
+
 bot.on('message', message => {
     if(message.member != null){
         if(retardMembers.includes(message.member.id)){
             // 5% chance to call him a retard
-            if(Math.ceil(Math.random() * 20) == 1) message.channel.send('retard');
+            if(Math.ceil(Math.random() * 20) == 1){
+                message.channel.send('retard');
+            }
         }
-        // Sharky
         else if(pastaMembers.includes(message.member.id)){
             // 5% chance to send dm featuring a copypasta
             if(Math.ceil(Math.random() * 100) == 1) dmCopypasta(message);
@@ -337,6 +378,9 @@ bot.on('message', message => {
     const cmd = args[0].toLowerCase();
     const server = servers[message.guild.id];
     switch(cmd){
+        case 'deepfry':
+            deepFry(message);
+            break;
         case 'top5':
             if(!args[1]) return message.reply('Error, please enter a search term');
         
@@ -351,6 +395,9 @@ bot.on('message', message => {
             server.queue = [];
             currentSong = [];
             if(server.dispatcher) server.dispatcher.end();
+            break;
+        case 'insult':
+            attack(message, args);
             break;
         case 'play':
             if(!args[1]){
