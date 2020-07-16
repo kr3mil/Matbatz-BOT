@@ -13,6 +13,8 @@ const bot = new Discord.Client();
 const Http = new XMLHttpRequest();
 const fs = require('fs');
 const Jimp = require('jimp');
+const DabiImages = require("dabi-images");
+const DabiClient = new DabiImages.Client();
 
 const pastaMembers = ['206797799260553216', '240611985287413760', '264852817464786945', '121675133185294339'];
 const retardMembers = ['206797799260553216'];
@@ -385,6 +387,12 @@ bot.on('message', message => {
     const cmd = args[0].toLowerCase();
     const server = servers[message.guild.id];
     switch(cmd){
+        case 'feet':
+        case 'ass':
+        case 'thighs':
+        case 'panties':
+            hentaiHandle(message);
+            break;
         case 'deepfry':
             deepFry(message);
             break;
@@ -578,6 +586,32 @@ bot.on('message', message => {
 })
 
 bot.login(config.Token);
+
+async function hentaiHandle(message){
+    let args = message.content.substring(config.Prefix.length).split(" ");
+    const cmd = args[0].toLowerCase();
+    switch(cmd){
+        case 'feet':
+            DabiClient.nsfw.hentai.feet().then(json => handleHentaiJson(message, json));
+            break;
+        case 'ass':
+            DabiClient.nsfw.hentai.ass().then(json => handleHentaiJson(message, json));
+            break;
+        case 'thighs':
+            DabiClient.nsfw.hentai.thighs().then(json => handleHentaiJson(message, json));
+            break;
+        case 'panties':
+            DabiClient.nsfw.hentai.panties().then(json => handleHentaiJson(message, json));
+            break;
+        default:
+            break;
+    }
+}
+
+async function handleHentaiJson(message, json){
+    console.log(json['url']);
+    await message.channel.send({files: [json['url']]});
+}
 
 function dmCopypasta(message){
     try{
