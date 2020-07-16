@@ -151,7 +151,7 @@ async function getUrl(message, args){
         return playUrl(message, args[1]);
     }
     console.log('Url not valid, looking for video');
-    const searchTerm = args.splice(1).join(' ');
+    const searchTerm = args.slice(1).join(' ');
     console.log('Search term: ' + searchTerm);
 
     if(searchTerm.includes('?list=')){
@@ -174,11 +174,18 @@ async function getUrl(message, args){
     }
 }
 
-async function search(message, args, attmepts = 0){
-    const searchTerm = args.splice(1).join(' ');
-    if(attmepts < 5){
-        yts(searchTerm, function(err, r){
+async function search(message, args, attempts = 0){
+    const searchTerm = args.slice(1).join(' ');
+    console.log(`searching for: ${searchTerm}`);
+    if(attempts < 5){
+        await yts(searchTerm, function(err, r){
+            if(err){
+                console.log("ERROR SEARCHING");
+                console.log(err);
+                return;
+            }
             try{
+                console.log(r);
                 const videos = r.videos;
                 let msg = "```" + "Top 5 YouTube results:\n";
                 for(let i = 0; i < 5; i++){
@@ -388,7 +395,7 @@ bot.on('message', message => {
             break;
         case 'search':
             if(!args[1]) return message.reply('Error, please enter a search term');
-
+            console.log(`calling search with args: ` + args);
             search(message, args);
             break;
         case 'clear':
