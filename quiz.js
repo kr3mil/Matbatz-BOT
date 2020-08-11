@@ -124,10 +124,6 @@ async function actualStart(message, attempt = 0) {
 
 function handleQuizAnswer(message) {
   if (waiting) return;
-
-  console.log(
-    `isQuizRunning: ${isQuizRunning}, isQuizStarting: ${isQuizStarting}`
-  );
   if (!isQuizRunning || isQuizStarting) return;
 
   let name = message.member.nickname;
