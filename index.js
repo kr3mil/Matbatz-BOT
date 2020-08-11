@@ -5,8 +5,8 @@ var exec = require("child_process").exec;
 
 const request = require("request");
 const ytdl = require("ytdl-core-discord");
-var config = require("./config.json");
-//var config = process.env;
+var config =
+  process.env.username !== "theor" ? process.env : require("./config.json");
 const yts = require("yt-search");
 const Discord = require("discord.js");
 const bot = new Discord.Client();
