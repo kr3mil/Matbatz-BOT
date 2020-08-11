@@ -5,8 +5,8 @@ var exec = require("child_process").exec;
 
 const request = require("request");
 const ytdl = require("ytdl-core-discord");
-//var config = require('./config.json');
-var config = process.env;
+var config =
+  process.env.username !== "theor" ? process.env : require("./config.json");
 const yts = require("yt-search");
 const Discord = require("discord.js");
 const bot = new Discord.Client();
@@ -14,13 +14,17 @@ const Http = new XMLHttpRequest();
 const fs = require("fs");
 const Jimp = require("jimp");
 
+const quiz = require("./quiz.js");
+
 const pastaMembers = [
   "206797799260553216",
   "240611985287413760",
   "264852817464786945",
   "121675133185294339",
+  "82996854853206016",
 ];
 const retardMembers = ["206797799260553216"];
+const admins = ["121675133185294339"];
 var servers = {};
 var currentSong;
 var currentMsg;
@@ -373,6 +377,7 @@ async function attack(message, args) {
 
 bot.on("message", (message) => {
   if (message.member != null) {
+    // Copy pastas & retards
     if (retardMembers.includes(message.member.id)) {
       // 5% chance to call him a retard
       if (Math.ceil(Math.random() * 20) == 1) {
@@ -380,7 +385,12 @@ bot.on("message", (message) => {
       }
     } else if (pastaMembers.includes(message.member.id)) {
       // 5% chance to send dm featuring a copypasta
-      if (Math.ceil(Math.random() * 100) == 1) dmCopypasta(message);
+      if (Math.ceil(Math.random() * 150) == 1) dmCopypasta(message);
+    }
+
+    // Quiz messages
+    if (message.member.id !== "716527028844888104") {
+      quiz.handleQuizAnswer(message);
     }
     console.log(`Member id: ` + message.member.id);
   }
@@ -390,7 +400,31 @@ bot.on("message", (message) => {
 
   const cmd = args[0].toLowerCase();
   const server = servers[message.guild.id];
+
+  // Check admin commands
+  if (message.member != null && admins.includes(message.member.id)) {
+    switch (cmd) {
+      case "addretard":
+        // TODO
+        break;
+      case "addpasta":
+        // TODO
+        break;
+      default:
+        break;
+    }
+  }
+
+  // Normal commands
   switch (cmd) {
+    case "joinquiz":
+      quiz.joinQuiz(message);
+      break;
+    case "startquiz":
+      quiz.startQuiz(message, args);
+      break;
+    case "quizcats":
+      quiz.displayCategories(message);
     case "deepfry":
       deepFry(message);
       break;
@@ -634,6 +668,9 @@ function dmCopypasta(message) {
         } catch (err) {
           //console.log(err);
           console.log("Tried to dm a copypasta but something failed.");
+          message.author.send(
+            "so i tried to send you a copypasta fam but something messed up sorry"
+          );
         }
       }
     };
