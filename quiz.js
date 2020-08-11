@@ -14,26 +14,60 @@ let messagesToDelete = [];
 let answers = [];
 let correctAnswer = "";
 let waiting = false;
+let category = undefined;
 
-async function startQuiz(message) {
+async function startQuiz(message, args) {
   if (isQuizRunning) {
     return;
   }
 
   if (isQuizStarting) {
-    // TODO force start quiz with players that have joined
     return actualStart(message);
   }
 
   console.log("Starting quiz");
   isQuizStarting = true;
   channel = message.channel;
+
+  category = args.length > 1 ? parseInt(args[1]) + 8 : undefined;
+
   messagesToDelete.push(
     await channel.send(`A quiz will start soon! Join by typing: $joinquiz`)
   );
+
   joinQuiz(message);
-  // TODO send message in chat asking players to join
   // TODO start a 30 second timer allowing people to join, can be overwritten by writing $startquiz again
+}
+
+function displayCategories(message) {
+  let replyChannel = message ? message.channel : channel;
+  let msg = [
+    "1 - General Knowledge",
+    "2 - Entertainment: Books",
+    "3 - Entertainment: Film",
+    "4 - Entertainment: Music",
+    "5 - Entertainment: Musicals & Theatres",
+    "6 - Entertainment: Television",
+    "7 - Entertainment: Video Games",
+    "8 - Entertainment: Board Games",
+    "9 - Science & Nature",
+    "10 - Science: Computers",
+    "11 - Science: Mathematics",
+    "12 - Mythology",
+    "13 - Sports",
+    "14 - Geography",
+    "15 - History",
+    "16 - Politics",
+    "17 - Art",
+    "18 - Celebrities",
+    "19 - Animals",
+    "20 - Vehicles",
+    "21 - Entertainment: Comics",
+    "22 - Science: Gadgets",
+    "23 - Entertainment: Japanese Anime & Manga",
+    "24 - Entertainment: Cartoon & Animations",
+  ];
+  replyChannel.send("```\n" + msg.join("\n") + "```");
 }
 
 async function actualStart(message, attempt = 0) {
@@ -52,12 +86,12 @@ async function actualStart(message, attempt = 0) {
   }
   // TODO send message in channel saying quiz has started
   try {
+    let reqURL = category
+      ? `https://opentdb.com/api.php?amount=5&category=${category}&difficulty=easy&type=multiple`
+      : `https://opentdb.com/api.php?amount=5&difficulty=easy&type=multiple`;
+    console.log(reqURL);
     let req = new XMLHttpRequest();
-    req.open(
-      "GET",
-      "https://opentdb.com/api.php?amount=3&category=11&difficulty=easy&type=multiple",
-      true
-    );
+    req.open("GET", reqURL, true);
 
     req.send();
 
@@ -104,7 +138,8 @@ function handleQuizAnswer(message) {
     console.log("player not in players list");
     return;
   }
-  const answer = message.content.split(" ")[0];
+  const answer = parseInt(message.content.split(" ")[0]);
+  if (!answer || answer < 1 || answer > 4) return;
   if (!answers.some((value) => value.user === name)) {
     console.log(`${name} guessed ${answer}`);
     answers.push({ user: name, answer: answer });
@@ -188,19 +223,23 @@ async function checkAnswers() {
     setTimeout(() => deleteBacklog(), 3000);
 
     players.sort((a, b) => a.points > b.points);
+    players.reverse();
+    console.log(players[0]);
 
     const embed = new Discord.MessageEmbed()
       .setTitle(`Congratulations ${players[0].name}!`)
       .addFields(
         players.map((player) => {
-          return { name: `${player.points} points`, value: player.name };
+          return {
+            name: `${player.points} `(player.points === 1 ? "point" : "points"),
+            value: player.name,
+          };
         })
       )
       .setColor(0xf1c40f)
       .setTimestamp()
       .setFooter("Final scores");
     channel.send(embed);
-    // TODO display final scoreboard as embed
 
     isQuizRunning = false;
     isQuizStarting = false;
@@ -227,6 +266,7 @@ function deleteBacklog() {
 }
 
 module.exports = {
+  displayCategories,
   joinQuiz,
   startQuiz,
   handleQuizAnswer,

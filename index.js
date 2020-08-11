@@ -21,6 +21,7 @@ const pastaMembers = [
   "240611985287413760",
   "264852817464786945",
   "121675133185294339",
+  "82996854853206016",
 ];
 const retardMembers = ["206797799260553216"];
 const admins = ["121675133185294339"];
@@ -406,6 +407,9 @@ bot.on("message", (message) => {
       case "addretard":
         // TODO
         break;
+      case "addpasta":
+        // TODO
+        break;
       default:
         break;
     }
@@ -417,8 +421,10 @@ bot.on("message", (message) => {
       quiz.joinQuiz(message);
       break;
     case "startquiz":
-      quiz.startQuiz(message);
+      quiz.startQuiz(message, args);
       break;
+    case "quizcats":
+      quiz.displayCategories(message);
     case "deepfry":
       deepFry(message);
       break;
