@@ -12,6 +12,8 @@ let questions = [];
 let questionCount = 0;
 let messagesToDelete = [];
 let answers = [];
+let correctAnswer = "";
+let waiting = false;
 
 async function startQuiz(message) {
   if (isQuizRunning) {
@@ -40,7 +42,7 @@ async function actualStart(message, attempt = 0) {
   isQuizRunning = true;
   isQuizStarting = false;
   console.log("quiz started");
-  channel.send("Quiz started!");
+  messagesToDelete.push(await channel.send("Quiz started!"));
 
   if (attempt > 5) {
     console.error("something wrong with getting quiz from api");
@@ -53,7 +55,7 @@ async function actualStart(message, attempt = 0) {
     let req = new XMLHttpRequest();
     req.open(
       "GET",
-      "https://opentdb.com/api.php?amount=1&category=11&difficulty=easy&type=multiple",
+      "https://opentdb.com/api.php?amount=3&category=11&difficulty=easy&type=multiple",
       true
     );
 
@@ -87,6 +89,8 @@ async function actualStart(message, attempt = 0) {
 }
 
 function handleQuizAnswer(message) {
+  if (waiting) return;
+
   console.log(
     `isQuizRunning: ${isQuizRunning}, isQuizStarting: ${isQuizStarting}`
   );
@@ -134,10 +138,20 @@ async function askQuestion() {
   console.log("displaying question");
   console.log(questions[questionCount]);
 
+  let qAns = [
+    question["correct"],
+    question["wrong"][0],
+    question["wrong"][1],
+    question["wrong"][2],
+  ];
+  qAns = qAns.sort(() => Math.random() - 0.5);
+  correctAnswer = qAns.indexOf(question["correct"]) + 1;
+  console.log(`Correct answer: ${correctAnswer}`);
+
   const embed = new Discord.MessageEmbed()
     .setTitle(`${question["question"]}`)
     .setDescription(
-      `1 - ${question["correct"]}\n2 - ${question["wrong"][0]}\n3 - ${question["wrong"][1]}\n4 - ${question["wrong"][2]}`
+      `1 - ${qAns[0]}\n2 - ${qAns[1]}\n3 - ${qAns[2]}\n4 - ${qAns[3]}`
     )
     .setColor(0xf1c40f)
     .setFooter(`Question ${questionCount + 1}`);
@@ -146,10 +160,63 @@ async function askQuestion() {
 }
 
 async function checkAnswers() {
-  // TODO check who got the correct answer
   // TODO call askQuestion after 5 seconds if there are more questions else end
   await deleteBacklog();
   let whoGuessed = "";
+  answers.forEach((answer) => {
+    if (answer.answer == correctAnswer) {
+      let player = players.find((obj) => obj.name === answer.user);
+      if (whoGuessed.length > 0) whoGuessed += ", ";
+      whoGuessed += `${player.name}`;
+      player.points++;
+      console.log(players.find((obj) => obj.name === answer.user));
+    }
+  });
+  whoGuessed =
+    whoGuessed.length > 0
+      ? whoGuessed + " guessed correctly, well done."
+      : "No-one guessed correctly, retards.";
+  messagesToDelete.push(await channel.send(whoGuessed));
+
+  answers = [];
+  correctAnswer = "";
+  questionCount++;
+
+  if (questions.length == questionCount) {
+    console.log("FINISHED QUIZ");
+
+    setTimeout(() => deleteBacklog(), 3000);
+
+    players.sort((a, b) => a.points > b.points);
+
+    const embed = new Discord.MessageEmbed()
+      .setTitle(`Congratulations ${players[0].name}!`)
+      .addFields(
+        players.map((player) => {
+          return { name: `${player.points} points`, value: player.name };
+        })
+      )
+      .setColor(0xf1c40f)
+      .setTimestamp()
+      .setFooter("Final scores");
+    channel.send(embed);
+    // TODO display final scoreboard as embed
+
+    isQuizRunning = false;
+    isQuizStarting = false;
+    players = [];
+    channel = undefined;
+    questions = [];
+    questionCount = 0;
+    answers = [];
+    waiting = false;
+    correctAnswer = "";
+  } else {
+    setTimeout(() => {
+      waiting = false;
+      askQuestion();
+    }, 3000);
+  }
 }
 
 function deleteBacklog() {
