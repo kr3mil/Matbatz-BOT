@@ -146,10 +146,11 @@ async function ytVidSearch(message, opts, attempts = 0) {
     await yts(opts, function (err, r) {
       try {
         const videos = r.videos;
-        //console.log(videos);
+        console.log(videos);
         playUrl(message, videos[0]["url"]);
       } catch (exception) {
         console.log("video not found, attempt " + attempts);
+        attempts++;
         ytVidSearch(message, opts, attempts++);
       }
     });
@@ -446,27 +447,8 @@ bot.on("message", (message) => {
     case "insult":
       attack(message, args);
       break;
-    case "play":
-      if (!args[1]) {
-        message.channel.send("You need to provide a link!");
-        return;
-      }
-
-      if (!message.member.voice.channel) {
-        message.channel.send("You must be in a channel to play the bot.");
-        return;
-      }
-
-      if (!servers[message.guild.id]) {
-        console.log("Adding server to servers array");
-        servers[message.guild.id] = {
-          queue: [],
-        };
-      }
-
-      getUrl(message, args);
-      break;
     case "p":
+    case "play":
       if (!args[1]) {
         message.channel.send("You need to provide a link!");
         return;
