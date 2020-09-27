@@ -61,7 +61,7 @@ function createEmbed(song, title) {
       last(song.song.player_response.videoDetails.thumbnail.thumbnails)["url"]
     )
     .setColor(0xf1c40f)
-    .setFooter(song.song.video_url);
+    .setFooter(song.song.videoDetails.video_url);
 
   return embed;
 }
@@ -81,7 +81,7 @@ async function play(connection, message) {
     currentSong = server.queue[0];
     //ytdlStream = await ytdl.downloadFromInfo(currentSong.song, {type: 'opus', quality: 'highestaudio', filter: 'audioonly', requestOptions: { maxReconnects: 15, maxRetries: 5}});
     // TODO add reconects back in ect
-    ytdlStream = await ytdl(currentSong.song.video_url);
+    ytdlStream = await ytdl(currentSong.song.videoDetails.video_url);
     server.dispatcher = connection.play(ytdlStream, { type: "opus" });
     currentMsg = await showCurrent(message);
 
@@ -127,10 +127,16 @@ async function play(connection, message) {
 
 async function ytPlaylistSearch(message, opts, attempts = 0) {
   if (attempts < 5) {
+    console.log("Attempting to get playlist (ytPlaylistSearch) " + attempts);
     await yts(opts, function (err, r) {
+      console.log("yts finished");
       try {
-        const videos = r.items;
+        const videos = r.videos;
+        console.log(r);
         if (videos != undefined) {
+          console.log(
+            "found playlist, adding " + videos.length + " songs to queue"
+          );
           playPlaylist(message, videos);
         }
       } catch (exception) {
@@ -227,8 +233,12 @@ async function playPlaylist(message, videos) {
   let itemsAdded = 0;
   for (let i = 0; i < videos.length; i++) {
     try {
-      const song = await ytdl.getInfo(videos[i].url);
+      console.log("trying to get song");
+      const song = await ytdl.getInfo(
+        "https://www.youtube.com/watch?v=" + videos[i].videoId
+      );
       if (song != undefined) {
+        console.log("got song (playPlaylist)");
         if (song.player_response.playabilityStatus.status != "OK") {
           console.log("video unavailable, not adding");
           continue;
@@ -271,7 +281,9 @@ async function playUrl(message, url) {
       name = message.member.user.username;
     }
     server.queue.push({ song: song, req: name });
-    message.channel.send(`'${song.title}' has been added to the queue.`);
+    message.channel.send(
+      `'${song.videoDetails.title}' has been added to the queue.`
+    );
     console.log("Queue size: " + server.queue.length);
 
     if (message.guild.voice) {
