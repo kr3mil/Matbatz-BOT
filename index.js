@@ -13,8 +13,11 @@ const bot = new Discord.Client();
 const Http = new XMLHttpRequest();
 const fs = require("fs");
 const Jimp = require("jimp");
+const lyrics = require("solenolyrics");
+const lyricsIfMedia = require("lyrics-finder");
 
 const quiz = require("./quiz.js");
+const { split } = require("ffmpeg-static");
 
 const pastaMembers = [
   "206797799260553216",
@@ -55,7 +58,7 @@ async function deepFry(message) {
 function createEmbed(song, title) {
   const embed = new Discord.MessageEmbed()
     .setTitle(title)
-    .addField("Title", song.song.title)
+    .addField("Title", song.song.videoDetails.title)
     .addField("Requester", song.req)
     .setThumbnail(
       last(song.song.player_response.videoDetails.thumbnail.thumbnails)["url"]
@@ -398,7 +401,7 @@ bot.on("message", (message) => {
       }
     } else if (pastaMembers.includes(message.member.id)) {
       // 5% chance to send dm featuring a copypasta
-      if (Math.ceil(Math.random() * 150) == 1) dmCopypasta(message);
+      // if (Math.ceil(Math.random() * 150) == 1) dmCopypasta(message);
     }
 
     // Quiz messages
@@ -596,6 +599,9 @@ bot.on("message", (message) => {
           Math.random() * upperLimit
         )} (1 - ${upperLimit})`
       );
+    case "lyrics":
+      getLyrics(message);
+      break;
     case "gettoken":
       if (message.member.hasPermission("ADMINISTRATOR")) {
         getAuthToken();
@@ -610,7 +616,9 @@ bot.on("message", (message) => {
       break;
     case "current":
       if (currentSong != undefined) {
-        message.channel.send(`Current song: ${currentSong.song.title}`);
+        message.channel.send(
+          `Current song: ${currentSong.song.videoDetails.title}`
+        );
       }
       break;
     case "remove":
@@ -620,12 +628,16 @@ bot.on("message", (message) => {
         `searching for ${searchTerm} in ${server.queue.length} songs`
       );
       let index = server.queue.findIndex((x) =>
-        x.song.title.toLowerCase().includes(searchTerm.toLowerCase())
+        x.song.videoDetails.title
+          .toLowerCase()
+          .includes(searchTerm.toLowerCase())
       );
       if (index > -1) {
         let removedSong = server.queue[index].song;
         server.queue.splice(index, 1);
-        return message.channel.send(`${removedSong.title} removed from queue`);
+        return message.channel.send(
+          `${removedSong.videoDetails.title} removed from queue`
+        );
       }
       break;
     case "help":
@@ -636,6 +648,59 @@ bot.on("message", (message) => {
 });
 
 bot.login(config.Token);
+
+async function getLyrics(message) {
+  if (currentSong) {
+    if (currentSong.song.videoDetails.media) {
+      let { artist, song } = currentSong.song.videoDetails.media;
+      console.log("Artist: " + artist + ", Song: " + song);
+      if (artist && lyrics) {
+        let foundLyrics = await lyricsIfMedia(artist, song);
+        if (foundLyrics) {
+          return sendLyrics(message, foundLyrics);
+        }
+        return getLyricsOther(message);
+      }
+      return getLyricsOther(message);
+    } else {
+      return getLyricsOther(message);
+    }
+  } else {
+    return message.channel.send("No song currently playing");
+  }
+}
+
+async function getLyricsOther(message) {
+  console.log("Getting lyrics using title");
+  let splitTitle = currentSong.song.videoDetails.title.split("-");
+  if (splitTitle.length > 1) {
+    let foundLyrics = await lyricsIfMedia(splitTitle[0], splitTitle[1]);
+    if (!foundLyrics) {
+      foundLyrics = await lyricsIfMedia(splitTitle[1], splitTitle[0]);
+    }
+    if (foundLyrics) {
+      sendLyrics(message, foundLyrics);
+    }
+    console.log(foundLyrics);
+  } else {
+    console.warn("Can't get artist and song name using title");
+    console.log("Maybe try finding lyrics using other lyrics api?");
+  }
+  // let foundLyrics = await lyrics.requestLyricsFor(
+  //   currentSong.song.videoDetails.title
+  // );
+  // console.log(foundLyrics);
+}
+
+async function sendLyrics(message, foundLyrics) {
+  let lyricsArray = foundLyrics.split("");
+  let iter = 1750;
+  for (let i = 0; i < lyricsArray.length; i = i + iter) {
+    let temparray = lyricsArray.slice(i, i + iter);
+    message.channel.send("```" + temparray.join("") + "```");
+  }
+  return;
+}
 
 function dmCopypasta(message) {
   try {
@@ -679,7 +744,7 @@ function displayQueue(message) {
   let server = servers[message.guild.id];
   let msg = "```Queue: " + server.queue.length + "\n";
   for (let i = 0; i < Math.min(server.queue.length, 5); i++) {
-    msg += "  " + server.queue[i].song.title + "\n";
+    msg += "  " + server.queue[i].song.videoDetails.title + "\n";
   }
   return message.channel.send((msg += "```"));
 }
